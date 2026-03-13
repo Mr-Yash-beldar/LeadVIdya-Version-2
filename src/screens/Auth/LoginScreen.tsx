@@ -151,7 +151,7 @@ export const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           </GlassCard>
 
           <View style={styles.bottomNote}>
-            <Text style={styles.versionText}>v2.5.0 • Team LeadVidya</Text>
+            <Text style={styles.versionText}>v2.5.1 • Team LeadVidya</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

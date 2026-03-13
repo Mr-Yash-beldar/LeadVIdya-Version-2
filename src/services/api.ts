@@ -107,7 +107,7 @@ export const api = {
             if (Array.isArray(data)) {
                 await AsyncStorage.setItem(CAMPAIGNS_CACHE_KEY, JSON.stringify(data));
             }
-            console.log("campaigns data", data);
+            // console.log("campaigns data", data);
             return { data, fromCache: false };
         } catch (error: any) {
             console.error('Get Campaigns Error:', error);
@@ -197,6 +197,7 @@ export const api = {
             const response = await apiClient.get('/calls/reports', {
                 params: { start: startDate, end: endDate }
             });
+            // console.log("call reports", response.data);
             return response.data;
         } catch (error: any) {
             console.error('Report Fetch Error:', error.response?.data || error.message);

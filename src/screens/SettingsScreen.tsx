@@ -129,7 +129,7 @@ export const SettingsScreen = () => {
             {renderSettingItem({
               icon: Download,
               title: 'Check for Updates',
-              subtitle: 'Current version: 2.5.0',
+              subtitle: 'Current version: 2.5.1',
               onPress: () => navigation.navigate('UpdateApp')
             })}
             <View style={styles.divider} />
@@ -180,7 +180,7 @@ export const SettingsScreen = () => {
               danger: true
             })}
           </GlassCard>
-          <Text style={styles.versionText}>LeadVidya CRM v2.5.0</Text>
+          <Text style={styles.versionText}>LeadVidya CRM v2.5.1</Text>
           <Text style={styles.copyrightText}>© 2026 LeadVidya. All rights reserved.</Text>
         </View>
       </ScrollView>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ScrollView, Keyboard, Alert } from 'react-native';
 import { MessageCircle, MessageSquare, Check, X, Calendar as CalendarIcon, Clock, ChevronRight, Send } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors } from '../theme/colors';
@@ -49,8 +49,8 @@ interface DisposeFormProps {
     onProceed: () => void;
     onSendMessage: () => void;
     onSendWhatsApp: () => void;
-    onDateChange: (event: any, selectedDate?: Date) => void;
-    onTimeChange: (event: any, selectedDate?: Date) => void;
+    onDateChange?: (event: any, selectedDate?: Date) => void;
+    onTimeChange?: (event: any, selectedDate?: Date) => void;
 }
 
 export const DisposeForm: React.FC<DisposeFormProps> = ({
@@ -69,15 +69,58 @@ export const DisposeForm: React.FC<DisposeFormProps> = ({
     onProceed,
     onSendMessage,
     onSendWhatsApp,
-    onDateChange,
-    onTimeChange,
+    setShowDatePicker,
+    setShowTimePicker,
+    setFollowUpDate,
 }) => {
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        if (event.type === 'dismissed') {
+            setShowDatePicker(false);
+            return;
+        }
+
+        if (selectedDate) {
+            const updatedDate = new Date(followUpDate);
+            updatedDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+            setFollowUpDate(updatedDate);
+            setShowDatePicker(false);
+
+            // Sequential time picker for Android
+            if (Platform.OS === 'android') {
+                setTimeout(() => setShowTimePicker(true), 350);
+            } else {
+                setShowTimePicker(true);
+            }
+        } else {
+            setShowDatePicker(false);
+        }
+    };
+
+    const handleTimeChange = (event: any, selectedTime?: Date) => {
+        if (event.type === 'dismissed') {
+            setShowTimePicker(false);
+            return;
+        }
+
+        if (selectedTime) {
+            const now = new Date();
+            if (selectedTime <= now) {
+                Alert.alert("Invalid Time", "Please select a future time for follow-up.");
+                // Set to 30 mins from now
+                setFollowUpDate(new Date(Date.now() + 30 * 60 * 1000));
+            } else {
+                setFollowUpDate(selectedTime);
+            }
+        }
+        setShowTimePicker(false);
+    };
+
     return (
         <View style={styles.container}>
             <GlassCard style={styles.mainCard}>
                 <Text style={styles.sectionTitle}>Call Disposition</Text>
                 <Text style={styles.question}>Was the call connected successfully?</Text>
-                
+
                 <View style={styles.choiceRow}>
                     <TouchableOpacity
                         style={[styles.choiceBtn, connected === false && styles.choiceBtnSelectedError]}
@@ -85,7 +128,7 @@ export const DisposeForm: React.FC<DisposeFormProps> = ({
                         activeOpacity={0.8}
                     >
                         <View style={[styles.choiceIcon, connected === false && { backgroundColor: 'white' }]}>
-                           <X size={16} color={connected === false ? colors.error : colors.textMuted} />
+                            <X size={16} color={connected === false ? colors.error : colors.textMuted} />
                         </View>
                         <Text style={[styles.choiceText, connected === false && styles.choiceTextActive]}>No</Text>
                     </TouchableOpacity>
@@ -96,7 +139,7 @@ export const DisposeForm: React.FC<DisposeFormProps> = ({
                         activeOpacity={0.8}
                     >
                         <View style={[styles.choiceIcon, connected === true && { backgroundColor: 'white' }]}>
-                           <Check size={16} color={connected === true ? colors.success : colors.textMuted} />
+                            <Check size={16} color={connected === true ? colors.success : colors.textMuted} />
                         </View>
                         <Text style={[styles.choiceText, connected === true && styles.choiceTextActive]}>Yes</Text>
                     </TouchableOpacity>
@@ -139,7 +182,7 @@ export const DisposeForm: React.FC<DisposeFormProps> = ({
 
                         <Text style={styles.label}>{connected ? 'Discussion Summary' : 'Disposition Remark'}</Text>
                         <View style={styles.inputWrapper}>
-                           <TextInput
+                            <TextInput
                                 style={styles.textArea}
                                 placeholder={connected ? "Brief history of the conversation..." : "Why was the call not connected?"}
                                 placeholderTextColor={colors.textMuted}
@@ -151,45 +194,69 @@ export const DisposeForm: React.FC<DisposeFormProps> = ({
                         </View>
 
                         {connected && (
-                           <>
-                             <Text style={styles.label}>Expected Deal Value</Text>
-                             <View style={styles.inputWrapper}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="0.00"
-                                    placeholderTextColor={colors.textMuted}
-                                    value={expectedValue}
-                                    onChangeText={setExpectedValue}
-                                    keyboardType="numeric"
-                                />
-                             </View>
-                           </>
+                            <>
+                                <Text style={styles.label}>Expected Deal Value</Text>
+                                <View style={styles.inputWrapper}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="0.00"
+                                        placeholderTextColor={colors.textMuted}
+                                        value={expectedValue}
+                                        onChangeText={setExpectedValue}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </>
                         )}
 
-                        <Text style={styles.label}>Follow-up Schedule</Text>
-                        <TouchableOpacity onPress={() => onDateChange(null, followUpDate)} style={styles.dateTimeBtn}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Keyboard.dismiss();
+                                setShowDatePicker(true);
+                            }}
+                            style={styles.dateTimeBtn}
+                            activeOpacity={0.7}
+                        >
                             <View style={styles.dateTimeInner}>
-                               <CalendarIcon size={18} color={colors.primary} />
-                               <Text style={styles.dateTimeText}>
-                                  {followUpDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                               </Text>
+                                <CalendarIcon size={18} color={colors.primary} />
+                                <Text style={styles.dateTimeText}>
+                                    {followUpDate.toLocaleString(undefined, {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </Text>
                             </View>
                             <ChevronRight size={18} color={colors.textMuted} />
                         </TouchableOpacity>
 
                         {showDatePicker && (
-                            <DateTimePicker value={followUpDate} mode="date" display="default" onChange={onDateChange} />
+                            <DateTimePicker
+                                value={followUpDate}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={handleDateChange}
+                                minimumDate={new Date()}
+                            />
                         )}
 
                         {showTimePicker && (
-                            <DateTimePicker value={followUpDate} mode="time" display="default" onChange={onTimeChange} />
+                            <DateTimePicker
+                                value={followUpDate}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={handleTimeChange}
+                            />
                         )}
 
-                        <TouchableOpacity 
-                          style={[styles.proceedBtn, isProcessing && { opacity: 0.7 }]} 
-                          onPress={onProceed} 
-                          disabled={isProcessing}
-                          activeOpacity={0.8}
+
+                        <TouchableOpacity
+                            style={[styles.proceedBtn, isProcessing && { opacity: 0.7 }]}
+                            onPress={onProceed}
+                            disabled={isProcessing}
+                            activeOpacity={0.8}
                         >
                             <Text style={styles.proceedText}>{isProcessing ? "Processing..." : "Finish Disposition"}</Text>
                             {!isProcessing && <Send size={18} color={colors.white} />}

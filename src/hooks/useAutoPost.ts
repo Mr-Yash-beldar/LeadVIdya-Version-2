@@ -40,7 +40,7 @@ export const autoPostMatchedCall = async (log: CallLog, leadId: string) => {
             durationSeconds: log.duration,
             callStatus,
             callType,
-            notes: 'auto Recored Call',
+            notes: 'auto recorded call',
         });
         postedSet.push(log.id);
         await AsyncStorage.setItem(POSTED_CALLS_KEY, JSON.stringify(postedSet));
