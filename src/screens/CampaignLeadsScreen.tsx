@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  RefreshControl,
-  Platform,
-  Dimensions,
-  StatusBar
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Platform,
+    Dimensions,
+    StatusBar
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors } from '../theme/colors';
@@ -19,60 +19,60 @@ import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
 import { SearchBar } from '../components/SearchBar';
 import { Lead } from '../types/Lead';
-import { 
-  PhoneCall, 
-  ChevronRight, 
-  User, 
-  Activity, 
-  Tag as TagIcon,
-  Search,
-  Zap,
-  Phone
+import {
+    PhoneCall,
+    ChevronRight,
+    User,
+    Activity,
+    Tag as TagIcon,
+    Search,
+    Zap,
+    Phone
 } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // -- Integrated Lead Card for Campaign View --
 const CampaignLeadCard = React.memo(({ item, onPress }: { item: Lead; onPress: (lead: Lead) => void }) => {
-  const name = item.name || item.firstName || 'Unknown';
-  const phone = item.number || item.phone || 'N/A';
-  const stage = item.stage || 'N/A';
-  const status = item.status || 'OPEN';
+    const name = item.name || item.firstName || 'Unknown';
+    const phone = item.number || item.phone || 'N/A';
+    const stage = item.stage || 'N/A';
+    const status = item.status || 'OPEN';
 
-  return (
-    <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.7}>
-      <GlassCard style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.avatar}>
-            <User size={20} color={colors.textSecondary} />
-          </View>
-          <View style={styles.headerTitle}>
-            <Text style={styles.leadName} numberOfLines={1}>{name}</Text>
-            <View style={styles.phoneRow}>
-              <Phone size={12} color={colors.textMuted} />
-              <Text style={styles.phoneNumber}>{phone}</Text>
-            </View>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: status === 'OPEN' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)' }]}>
-            <Text style={[styles.statusText, { color: status === 'OPEN' ? colors.success : colors.warning }]}>{status}</Text>
-          </View>
-        </View>
+    return (
+        <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.7}>
+            <GlassCard style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <View style={styles.avatar}>
+                        <User size={20} color={colors.textSecondary} />
+                    </View>
+                    <View style={styles.headerTitle}>
+                        <Text style={styles.leadName} numberOfLines={1}>{name}</Text>
+                        <View style={styles.phoneRow}>
+                            <Phone size={12} color={colors.textMuted} />
+                            <Text style={styles.phoneNumber}>{phone}</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: status === 'OPEN' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)' }]}>
+                        <Text style={[styles.statusText, { color: status === 'OPEN' ? colors.success : colors.warning }]}>{status}</Text>
+                    </View>
+                </View>
 
-        <View style={styles.cardBody}>
-          <View style={styles.infoCol}>
-            <Activity size={12} color={colors.textMuted} />
-            <Text style={styles.infoLabel}>Stage:</Text>
-            <Text style={styles.infoValue}>{stage}</Text>
-          </View>
-          <View style={styles.infoCol}>
-            <TagIcon size={12} color={colors.textMuted} />
-            <Text style={styles.infoLabel}>Tag:</Text>
-            <Text style={styles.infoValue}>{item.tag || 'N/A'}</Text>
-          </View>
-        </View>
-      </GlassCard>
-    </TouchableOpacity>
-  );
+                <View style={styles.cardBody}>
+                    <View style={styles.infoCol}>
+                        <Activity size={12} color={colors.textMuted} />
+                        <Text style={styles.infoLabel}>Stage:</Text>
+                        <Text style={styles.infoValue}>{stage}</Text>
+                    </View>
+                    <View style={styles.infoCol}>
+                        <TagIcon size={12} color={colors.textMuted} />
+                        <Text style={styles.infoLabel}>Tag:</Text>
+                        <Text style={styles.infoValue}>{item.tag || 'N/A'}</Text>
+                    </View>
+                </View>
+            </GlassCard>
+        </TouchableOpacity>
+    );
 });
 
 export const CampaignLeadsScreen = () => {
@@ -105,7 +105,7 @@ export const CampaignLeadsScreen = () => {
     const filteredLeads = useMemo(() => {
         if (!searchQuery) return leads;
         const q = searchQuery.toLowerCase();
-        return leads.filter(l => 
+        return leads.filter(l =>
             (l.name && l.name.toLowerCase().includes(q)) ||
             (l.firstName && l.firstName.toLowerCase().includes(q)) ||
             (l.phone && l.phone.includes(q)) ||
@@ -113,11 +113,11 @@ export const CampaignLeadsScreen = () => {
         );
     }, [leads, searchQuery]);
 
-    const handleStartCalling = () => {
-        if (filteredLeads.length > 0) {
-            navigation.navigate('CallScreen', { lead: filteredLeads[0] });
-        }
-    };
+    // const handleStartCalling = () => {
+    //     if (filteredLeads.length > 0) {
+    //         navigation.navigate('CallScreen', { lead: filteredLeads[0] });
+    //     }
+    // };
 
     if (loading && !refreshing) {
         return (
@@ -133,7 +133,7 @@ export const CampaignLeadsScreen = () => {
             <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
             <View style={styles.container}>
                 <View style={styles.searchSection}>
-                   <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
+                    <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
                 </View>
 
                 <FlatList
@@ -152,12 +152,12 @@ export const CampaignLeadsScreen = () => {
                     }
                 />
 
-                <View style={styles.bottomActions}>
-                   <TouchableOpacity style={styles.callFab} onPress={handleStartCalling} activeOpacity={0.8}>
-                      <Zap size={20} color={colors.white} />
-                      <Text style={styles.callFabText}>Start Calling</Text>
-                   </TouchableOpacity>
-                </View>
+                {/* <View style={styles.bottomActions}>
+                    <TouchableOpacity style={styles.callFab} onPress={handleStartCalling} activeOpacity={0.8}>
+                        <Zap size={20} color={colors.white} />
+                        <Text style={styles.callFabText}>Start Calling</Text>
+                    </TouchableOpacity>
+                </View> */}
             </View>
         </ScreenWrapper>
     );

@@ -85,8 +85,8 @@ export const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
           <GlassCard style={styles.loginCard}>
             <View style={styles.cardHeader}>
-              <Sparkles size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Sign In to Continue</Text>
+
+              <Text style={styles.cardTitle}><Sparkles size={15} color={colors.primary} /> Sign In to Continue <Sparkles size={15} color={colors.primary} /></Text>
             </View>
 
             <View style={styles.inputGroup}>
@@ -130,9 +130,9 @@ export const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.forgotBtn}>
+            {/* <TouchableOpacity style={styles.forgotBtn}>
               <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <CustomButton
               title="Sign In"
@@ -142,16 +142,16 @@ export const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               textStyle={styles.submitBtnText}
             />
 
-            <View style={styles.footerRow}>
+            {/* <View style={styles.footerRow}>
               <Text style={styles.footerText}>Don't have an account? </Text>
               <TouchableOpacity>
                 <Text style={styles.signupText}>Contact Admin</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </GlassCard>
 
           <View style={styles.bottomNote}>
-            <Text style={styles.versionText}>v2.4.0 • Enterprise Edition</Text>
+            <Text style={styles.versionText}>v2.5.0 • Team LeadVidya</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   logoRing: {
     padding: 12,
     borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: 'rgba(255,193,7,0.2)',
   },
@@ -238,22 +238,24 @@ const styles = StyleSheet.create({
     borderRadius: 32,
   },
   cardHeader: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     gap: 8,
     marginBottom: 32,
   },
   cardTitle: {
     ...theme.typography.h3,
-    fontSize: 18,
-    color: colors.white,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primaryDark,
+
   },
   inputGroup: {
     marginBottom: 20,
   },
   inputLabel: {
     ...theme.typography.caption,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     fontWeight: '700',
     marginBottom: 10,
     marginLeft: 4,

@@ -86,8 +86,8 @@ export const AddLeadModal = memo(({
       await onSubmit({ firstName, lastName, campaign: selectedCampaign });
       handleClose();
     } catch (error) {
-       // Error handled in onSubmit usually, but if not:
-       Alert.alert('Error', 'Failed to create lead.');
+      // Error handled in onSubmit usually, but if not:
+      Alert.alert('Error', 'Failed to create lead.');
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export const AddLeadModal = memo(({
                 onChangeText={setFirstName}
                 placeholderTextColor="#999"
               />
-              
+
               <Text style={styles.label}>Last Name</Text>
               <TextInput
                 style={styles.input}
@@ -158,7 +158,7 @@ export const AddLeadModal = memo(({
                   </TouchableOpacity>
                 ))}
                 {campaigns.length === 0 && !loadingCampaigns && (
-                    <Text style={styles.emptyText}>No active campaigns found.</Text>
+                  <Text style={styles.emptyText}>No active campaigns found.</Text>
                 )}
               </View>
             )}
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   closeButton: {
     padding: 4,

@@ -20,7 +20,6 @@ import { colors } from '../theme/colors';
 import { Phone, Users, BarChart2, Menu, UserPlus, Megaphone, Download } from 'lucide-react-native';
 
 import { PrivacyScreen } from '../screens/Onboarding/PrivacyScreen';
-import { ConnectSimScreen } from '../screens/Onboarding/ConnectSimScreen';
 import { VerificationScreen } from '../screens/Onboarding/VerificationScreen';
 import { PermissionScreen } from '../screens/Onboarding/PermissionScreen';
 import { DefaultPhoneScreen } from '../screens/Onboarding/DefaultPhoneScreen';
@@ -168,7 +167,6 @@ const RootContent = () => {
             <Stack.Screen name="PermissionContacts" component={PermissionContactScreen} />
             <Stack.Screen name="PermissionNotification" component={PermissionNotificationScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
-            <Stack.Screen name="ConnectSim" component={ConnectSimScreen} />
             <Stack.Screen name="Verification" component={VerificationScreen} />
             <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
           </>

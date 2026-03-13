@@ -10,13 +10,13 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { 
-  User, 
-  Settings, 
-  Shield, 
-  HelpCircle, 
-  LogOut, 
-  ChevronRight, 
+import {
+  User,
+  Settings,
+  Shield,
+  HelpCircle,
+  LogOut,
+  ChevronRight,
   Download,
   Bell,
   Info,
@@ -40,8 +40,8 @@ export const SettingsScreen = () => {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
+        {
+          text: 'Logout',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -56,8 +56,8 @@ export const SettingsScreen = () => {
   }, [logout]);
 
   const renderSettingItem = useCallback(({ icon: Icon, title, subtitle, onPress, showChevron = true, danger = false }: any) => (
-    <TouchableOpacity 
-      style={styles.itemContainer} 
+    <TouchableOpacity
+      style={styles.itemContainer}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -75,8 +75,8 @@ export const SettingsScreen = () => {
   return (
     <ScreenWrapper navigation={navigation} title="More" transparentHeader={false}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-      <ScrollView 
-        style={styles.container} 
+      <ScrollView
+        style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -96,8 +96,8 @@ export const SettingsScreen = () => {
                 <Text style={styles.phoneText}>{user?.number || 'No Phone'}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.editBtn} onPress={() => {}}>
-               <UserCircle size={24} color={colors.primary} />
+            <TouchableOpacity style={styles.editBtn} onPress={() => { }}>
+              <UserCircle size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </GlassCard>
@@ -110,14 +110,14 @@ export const SettingsScreen = () => {
               icon: User,
               title: 'Edit Profile',
               subtitle: 'Update your personal information',
-              onPress: () => {}
+              onPress: () => { }
             })}
             <View style={styles.divider} />
             {renderSettingItem({
               icon: Bell,
               title: 'Notifications',
               subtitle: 'Manage your alerts and preferences',
-              onPress: () => {}
+              onPress: () => { }
             })}
           </GlassCard>
         </View>
@@ -129,7 +129,7 @@ export const SettingsScreen = () => {
             {renderSettingItem({
               icon: Download,
               title: 'Check for Updates',
-              subtitle: 'Current version: 1.0.5',
+              subtitle: 'Current version: 2.5.0',
               onPress: () => navigation.navigate('UpdateApp')
             })}
             <View style={styles.divider} />
@@ -137,7 +137,7 @@ export const SettingsScreen = () => {
               icon: ShieldCheck,
               title: 'Permissions',
               subtitle: 'Manage app access & security',
-              onPress: () => {}
+              onPress: () => { }
             })}
           </GlassCard>
         </View>
@@ -150,7 +150,7 @@ export const SettingsScreen = () => {
               icon: HelpCircle,
               title: 'Help Center',
               subtitle: 'FAQs and contact support',
-              onPress: () => {}
+              onPress: () => { }
             })}
             <View style={styles.divider} />
             {renderSettingItem({
@@ -164,7 +164,7 @@ export const SettingsScreen = () => {
               icon: Info,
               title: 'About LeadVidya',
               subtitle: 'Version, licenses and terms',
-              onPress: () => {}
+              onPress: () => { }
             })}
           </GlassCard>
         </View>
@@ -180,7 +180,7 @@ export const SettingsScreen = () => {
               danger: true
             })}
           </GlassCard>
-          <Text style={styles.versionText}>LeadVidya CRM v1.0.5</Text>
+          <Text style={styles.versionText}>LeadVidya CRM v2.5.0</Text>
           <Text style={styles.copyrightText}>© 2026 LeadVidya. All rights reserved.</Text>
         </View>
       </ScrollView>
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
   profileCard: {
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
-    backgroundColor: 'rgba(255,193,7,0.05)',
-    borderColor: 'rgba(255,193,7,0.15)',
+    // backgroundColor: 'rgba(255,193,7,0.05)',
+    // borderColor: 'rgba(255,193,7,0.15)',
   },
   profileHeader: {
     flexDirection: 'row',

@@ -43,7 +43,7 @@ export const ScreenWrapper = ({
       <SafeAreaView edges={['top']} style={[styles.headerContainer, !transparentHeader && styles.headerShadow]}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {showBack && title !== "Call Logs" ? (
+            {showBack && title !== "History" ? (
               <TouchableOpacity onPress={handleBackPress} activeOpacity={0.7} style={styles.backButton}>
                 <ChevronLeft size={24} color={colors.textPrimary} />
               </TouchableOpacity>
@@ -123,4 +123,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-});
+});

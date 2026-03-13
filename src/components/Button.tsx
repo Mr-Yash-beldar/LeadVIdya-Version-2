@@ -12,11 +12,11 @@ interface ButtonProps {
   textStyle?: TextStyle;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  title, 
-  onPress, 
-  variant = 'primary', 
-  loading = false, 
+export const Button: React.FC<ButtonProps> = ({
+  title,
+  onPress,
+  variant = 'primary',
+  loading = false,
   disabled = false,
   style,
   textStyle
@@ -31,8 +31,8 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getTextColor = () => {
     if (disabled) return '#A0A0A0';
-    if (variant === 'outline') return colors.text;
-    if (variant === 'white') return colors.text;
+    if (variant === 'outline') return colors.textPrimary;
+    if (variant === 'white') return colors.textPrimary;
     return '#000000'; // Primary yellow usually has black text for contrast
   };
 

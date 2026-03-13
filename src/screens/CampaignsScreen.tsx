@@ -48,7 +48,7 @@ export const CampaignsScreen = () => {
     }, [searchQuery, campaigns]);
 
     const handleCampaignPress = useCallback((item: Campaign) => {
-        navigation.navigate('Leads', { campaignId: item._id, campaignName: item.name });
+        navigation.navigate('CampaignLeads', { campaignId: item._id, title: item.name });
     }, [navigation]);
 
     const renderCampaignItem = useCallback(({ item }: { item: Campaign }) => (

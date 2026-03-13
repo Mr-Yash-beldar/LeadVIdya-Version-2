@@ -13,16 +13,16 @@ export const AccordionItem: React.FC<AccordionProps> = ({ title, content }) => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.header} 
+      <TouchableOpacity
+        style={styles.header}
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.7}
       >
         <Text style={styles.title}>{title}</Text>
         {expanded ? (
-          <ChevronUp size={20} color={colors.text} />
+          <ChevronUp size={20} color={colors.textPrimary} />
         ) : (
-          <ChevronDown size={20} color={colors.text} />
+          <ChevronDown size={20} color={colors.textPrimary} />
         )}
       </TouchableOpacity>
       {expanded && (
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   content: {
     paddingBottom: 12,

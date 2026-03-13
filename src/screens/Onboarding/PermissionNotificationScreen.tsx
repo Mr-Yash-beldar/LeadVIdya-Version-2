@@ -28,11 +28,11 @@ export const PermissionNotificationScreen: React.FC<{ navigation: any }> = ({ na
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        
+
         <View style={styles.illustrationContainer}>
-           <View style={styles.placeholderImage}>
-             <Bell size={80} color={colors.primary} />
-           </View>
+          <View style={styles.placeholderImage}>
+            <Bell size={80} color={colors.primary} />
+          </View>
         </View>
 
         <Text style={styles.title}>"Callyzer" Would Like to Send You Notifications</Text>
@@ -43,20 +43,20 @@ export const PermissionNotificationScreen: React.FC<{ navigation: any }> = ({ na
 
         <View style={styles.footerSpacing} />
 
-        <Button 
-          title="Enable Notifications" 
-          onPress={handleEnableNotifications} 
+        <Button
+          title="Enable Notifications"
+          onPress={handleEnableNotifications}
         />
 
-        <TouchableOpacity 
-            style={styles.linkContainer}
-            onPress={handleSkip} 
+        <TouchableOpacity
+          style={styles.linkContainer}
+          onPress={handleSkip}
         >
-            <Text style={styles.laterText}>Maybe later</Text>
+          <Text style={styles.laterText}>Maybe later</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.linkContainer, {marginTop: 24}]}>
-            <Text style={styles.linkText}>Privacy Policy</Text>
+        <TouchableOpacity style={[styles.linkContainer, { marginTop: 24 }]}>
+          <Text style={styles.linkText}>Privacy Policy</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -81,17 +81,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   placeholderImage: {
-      width: 150,
-      height: 150,
-      backgroundColor: '#FFFDE7',
-      borderRadius: 75,
-      alignItems: 'center',
-      justifyContent: 'center'
+    width: 150,
+    height: 150,
+    backgroundColor: '#FFFDE7',
+    borderRadius: 75,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 24,
     letterSpacing: 0.5,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   paragraph: {
     fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center', 
+    textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
     width: '100%',
@@ -108,16 +108,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linkContainer: {
-      marginTop: 16,
+    marginTop: 16,
   },
   laterText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   linkText: {
-      textDecorationLine: 'underline',
-      color: colors.textSecondary,
-      fontSize: 12,
+    textDecorationLine: 'underline',
+    color: colors.textSecondary,
+    fontSize: 12,
   }
 });

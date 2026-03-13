@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   phoneNum: {
     fontSize: 14,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   actionsContainer: {
     marginBottom: 12,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   leadBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   actionBtn: {
     paddingVertical: 14,
