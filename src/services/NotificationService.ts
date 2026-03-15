@@ -1,5 +1,7 @@
 import { NativeModules } from 'react-native';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface FollowUp {
     id: string;
     name: string;
@@ -9,82 +11,89 @@ export interface FollowUp {
     followUpTimestamp: number;
 }
 
-export const DEMO_FOLLOWUPS: FollowUp[] = [
-    {
-        id: 'fu_1',
-        name: 'Yashodip Shete',
-        status: 'Pending',
-        followUpDate: '27.02.2026',
-        followUpTime: '3:00 PM',
-        followUpTimestamp: new Date('2026-02-27T09:30:00.000Z').getTime(), 
-    },
-    {
-        id: 'fu_2',
-        name: 'Ajit Sir',
-        status: 'Pending',
-        followUpDate: '27.02.2026',
-        followUpTime: '5:00 PM',
-        followUpTimestamp: new Date('2026-02-27T11:30:00.000Z').getTime(),
-    }
-];
+// ─── Notifee lazy-loader ───────────────────────────────────────────────────────
 
 const CHANNEL_ID = 'followup_reminders';
 
-// Cached module reference
 let _notifeeModule: any = null;
 let _notifeeChecked = false;
 
+function getDateTimeAndMinutesLeft(dateString: any) {
+    const target: any = new Date(dateString);
+    const now: any = new Date();
+
+    // format date
+    const date = target.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+
+    // format time
+    const time = target.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+    });
+
+
+    const diffMs = target - now;
+    const minutesLeft = Math.floor(diffMs / (1000 * 60));
+
+    return {
+        date,
+        time,
+        minutesLeft: minutesLeft > 0 ? `${minutesLeft} minutes left` : "Time passed"
+    };
+}
+
 /**
- * Safe Notifee loader for New Architecture (Fabric/Bridgeless).
- *
- * In the new architecture, Metro's guardedLoadModule calls reportFatalError
- * which bypasses a JS try/catch around require(). So we must check whether
- * the native Notifee module is registered BEFORE calling require().
+ * Safe Notifee loader — checks native module presence first to avoid
+ * red-screen crashes on New Architecture / Bridgeless mode.
  */
 const loadNotifee = () => {
-    if (_notifeeChecked) return _notifeeModule; // already resolved
-
+    if (_notifeeChecked) return _notifeeModule;
     _notifeeChecked = true;
 
-    // Step 1: Check if the Notifee native module is actually registered.
-    // If not, bail out silently — no require() call, no error flood.
     if (!NativeModules.NotifeeApiModule) {
-        // console.warn('[NotificationService] Notifee native module not registered. Notifications disabled.');
         return null;
     }
 
-    // Step 2: Native module is present — safe to load the JS layer.
     try {
         _notifeeModule = require('@notifee/react-native');
     } catch (e) {
-        console.warn('[NotificationService] Failed to load @notifee/react-native JS module:', e);
+        console.warn('[NotificationService] Failed to load @notifee/react-native:', e);
     }
     return _notifeeModule;
 };
 
-// Returns either the real Notifee module or a safe "No-Op" object
 const getNotifee = () => {
     const mod = loadNotifee();
-    if (mod) {
-        return mod.default || mod;
-    }
+    if (mod) return mod.default || mod;
 
-    // Failsafe No-Op object to prevent crashes on method calls
+    // No-Op fallback so callers never crash
     return {
-        createChannel: async () => {},
+        createChannel: async () => { },
         requestPermission: async () => ({ status: 1 }),
-        displayNotification: async () => {},
-        createTriggerNotification: async () => {},
-        cancelAllNotifications: async () => {},
+        displayNotification: async () => { },
+        createTriggerNotification: async () => { },
+        cancelAllNotifications: async () => { },
+        cancelNotification: async () => { },
         getTriggerNotificationIds: async () => [],
     } as any;
 };
 
+// ─── NotificationService ──────────────────────────────────────────────────────
+
 export const NotificationService = {
+
+    /**
+     * Creates the Android notification channel + requests permission.
+     * Safe to call multiple times (idempotent).
+     */
     async init() {
         const notifee = getNotifee();
-        if (!notifee) return;
-
         const mod = loadNotifee();
         const AndroidImportance = mod?.AndroidImportance || {};
         const AndroidVisibility = mod?.AndroidVisibility || {};
@@ -99,68 +108,98 @@ export const NotificationService = {
                 vibration: true,
             });
         } catch (e) {
-            console.error("Notifee init failed:", e);
+            console.warn('[NotificationService] init() createChannel failed:', e);
         }
     },
 
     async requestPermission() {
         const notifee = getNotifee();
-        if (!notifee) return;
         try {
             await notifee.requestPermission();
         } catch (e) {
-            console.error("Notifee requestPermission failed:", e);
+            console.warn('[NotificationService] requestPermission failed:', e);
         }
     },
 
-    async scheduleReminder(followUp: FollowUp) {
+    /**
+     * Fire an immediate, visible notification for an urgent task.
+     */
+    async displayUrgentNotification(task: any, isOverdue: boolean) {
+        // console.log('task', task);
         const notifee = getNotifee();
-        if (!notifee) return;
-
         const mod = loadNotifee();
-        const TriggerType = mod?.TriggerType || {};
         const AndroidImportance = mod?.AndroidImportance || {};
 
-        const reminderTs = followUp.followUpTimestamp - 60 * 60 * 1000; 
-        if (reminderTs <= Date.now()) return; 
+        // Use a stable ID so re-firing the same task replaces the previous notification
+        const uniqueId = `urgent-${task.id}-${isOverdue ? 'overdue' : 'upcoming'}`;
+
+        const leadName = task.name
+            ? `${task.name}`
+            : 'Lead';
+        const timeLabel = getDateTimeAndMinutesLeft(task.followupDate);
 
         try {
-            await notifee.createTriggerNotification(
-                {
-                    id: followUp.id,
-                    title: `📞 Follow-up Reminder — ${followUp.name}`,
-                    body: `Status: ${followUp.status} · Due at ${followUp.followUpTime} on ${followUp.followUpDate}`,
-                    android: {
-                        channelId: CHANNEL_ID,
-                        importance: AndroidImportance.HIGH ?? 4,
-                        smallIcon: 'ic_notification', 
-                        pressAction: { id: 'default' },
-                        showTimestamp: true,
-                    },
+            await notifee.displayNotification({
+                id: uniqueId,
+                title: isOverdue ? `🚨 Overdue Follow-up: ${leadName} ` : `⏰ Upcoming Follow - up: ${leadName} `,
+                body: isOverdue ? `Follow - up was scheduled for ${timeLabel.date} at ${timeLabel.time} ${timeLabel.minutesLeft} .Please act now!` : `Follow - up due soon at ${timeLabel.date} at ${timeLabel.time} ${timeLabel.minutesLeft}.`,
+                android: {
+                    channelId: CHANNEL_ID,
+                    importance: AndroidImportance.HIGH ?? 4,
+                    smallIcon: 'ic_notification',
+                    pressAction: { id: 'default' },
+                    showTimestamp: true,
+                    autoCancel: true,
                 },
-                {
-                    type: TriggerType.TIMESTAMP ?? 1,
-                    timestamp: reminderTs,
-                },
-            );
+            });
         } catch (e) {
-            console.error("Notifee scheduleReminder failed:", e);
+            console.warn('[NotificationService] displayUrgentNotification failed:', e);
         }
     },
 
-    async scheduleAll(followUps: FollowUp[] = DEMO_FOLLOWUPS) {
-        if (!getNotifee()) return;
+    /**
+     * Main polling function — called every 15 minutes by useAutoNotifications.
+     * Fetches urgent follow-ups from the real backend and fires OS notifications.
+     */
+    async fetchAndDisplayUrgent() {
         await this.init();
-        await this.requestPermission();
-        for (const fu of followUps) {
-            await this.scheduleReminder(fu);
+
+        try {
+            const { api } = require('./api');
+            const data = await api.getUrgentNotifications();
+            // console.log('data', data);
+
+            if (!data) return;
+
+            const upcoming: any[] = Array.isArray(data.upcoming) ? data.upcoming : [];
+            const overdue: any[] = Array.isArray(data.overdue) ? data.overdue : [];
+
+            // Fire a notification for every overdue and upcoming task.
+            // Using a stable notification ID means the OS replaces an existing
+            // notification instead of stacking duplicates on every 15-min poll.
+            for (const task of overdue) {
+                await this.displayUrgentNotification(task, true);
+            }
+            for (const task of upcoming) {
+                await this.displayUrgentNotification(task, false);
+            }
+
+            // console.log(
+            //     `[NotificationService] Fired ${ overdue.length } overdue + ${ upcoming.length } upcoming notifications.`
+            // );
+        } catch (e: any) {
+            if (e?.message !== 'Network Error' && !e?.message?.includes('timeout')) {
+                console.warn('[NotificationService] fetchAndDisplayUrgent failed:', e?.message);
+            }
         }
     },
 
     async cancelAll() {
         const notifee = getNotifee();
-        if (notifee) {
+        try {
             await notifee.cancelAllNotifications();
+        } catch (e) {
+            console.warn('[NotificationService] cancelAll failed:', e);
         }
-    }
+    },
 };

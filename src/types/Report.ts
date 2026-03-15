@@ -1,6 +1,7 @@
 export interface ReportMetrics {
     callOverview: {
         totalCalls: number;
+        uniqueCalls: number;
         totalConnected: number;
         totalCallTime: string;
         totalUnconnected: number;

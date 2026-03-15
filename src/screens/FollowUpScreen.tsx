@@ -1,329 +1,481 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    View, 
-    Text, 
-    StyleSheet, 
+    View,
+    Text,
+    StyleSheet,
     FlatList,
-    TouchableOpacity, 
-    Alert, 
+    TouchableOpacity,
+    Alert,
     StatusBar,
-    Animated,
+    ActivityIndicator,
+    RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  Bell, 
-  BellOff, 
-  ChevronLeft, 
-  Clock, 
-  User, 
-  ChevronRight, 
-  Calendar,
-  Zap,
-  Info
+import {
+    Bell,
+    BellOff,
+    Clock,
+    User,
+    Calendar,
+    CheckCircle,
+    AlarmClock,
+    AlertTriangle,
+    RefreshCw,
+    Inbox,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
-import {
-    NotificationService,
-    DEMO_FOLLOWUPS,
-    FollowUp,
-} from '../services/NotificationService';
+import { api } from '../services/api';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FollowUpTask {
+
+    id?: string;
+    name: string;
+    timing: any;
+    followupDate?: string;
+    followUpTime?: string;
+    followUpTimestamp?: number;
+    status?: string;
+    phone?: string;
+}
+
+function getDateTimeAndMinutesLeft(dateString: any) {
+    const target: any = new Date(dateString);
+    const now: any = new Date();
+
+    // format date
+    const date = target.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+
+    // format time
+    const time = target.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+    });
+
+
+    const diffMs = target - now;
+    const minutesLeft = Math.floor(diffMs / (1000 * 60));
+
+    return {
+        date,
+        time,
+        minutesLeft: minutesLeft > 0 ? `${minutesLeft} minutes left` : "Time passed"
+    };
+}
+
+
+/** Handles both Mongoose _id and plain id from the API */
+const getId = (task: FollowUpTask): string => task.id || '';
+
+type Section = 'overdue' | 'upcoming';
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export const FollowUpScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-    const [scheduled, setScheduled] = useState(false);
+    const [overdue, setOverdue] = useState<FollowUpTask[]>([]);
+    const [upcoming, setUpcoming] = useState<FollowUpTask[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [activeSection, setActiveSection] = useState<Section>('overdue');
+
+    const fetchFollowUps = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+        try {
+            const data = await api.getUrgentNotifications();
+            if (data) {
+                setOverdue(Array.isArray(data.overdue) ? data.overdue : []);
+                setUpcoming(Array.isArray(data.upcoming) ? data.upcoming : []);
+            }
+        } catch (e: any) {
+            Alert.alert('Error', 'Could not load follow-ups. Please try again.');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
 
     useEffect(() => {
-        NotificationService.scheduleAll(DEMO_FOLLOWUPS)
-            .then(() => setScheduled(true))
-            .catch(console.error);
-    }, []);
+        fetchFollowUps();
+    }, [fetchFollowUps]);
 
-    const handleTestNow = useCallback(async (item: FollowUp) => {
-        try {
-            await NotificationService.scheduleReminder({
-                ...item,
-                followUpTimestamp: Date.now() + 60 * 60 * 1000 + 1000 
-            });
-            Alert.alert('Success', `Test notification for ${item.name} scheduled for 1s.`);
-        } catch (e: any) {
-            Alert.alert('Notice', e?.message || 'Notification service busy.');
+    // ── Actions ────────────────────────────────────────────────────────────────
+
+    const handleComplete = useCallback(async (task: FollowUpTask) => {
+        const taskId = getId(task);
+        if (!taskId) {
+            Alert.alert('Error', 'Could not identify this follow-up. Please refresh and try again.');
+            return;
         }
-    }, []);
+        Alert.alert(
+            'Complete Follow-up',
+            `Mark follow-up with ${task.name} as completed?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Complete',
+                    onPress: async () => {
+                        setActionLoading(taskId);
+                        try {
+                            await api.completeFollowUp(taskId, 'qualified', '');
+                            await api.markNotificationAsRead(taskId);
+                            Alert.alert('Done ✅', `Follow-up with ${task.name} marked as complete.`);
+                            fetchFollowUps(true);
+                        } catch {
+                            Alert.alert('Error', 'Could not complete follow-up.');
+                        } finally {
+                            setActionLoading(null);
+                        }
+                    },
+                },
+            ]
+        );
+    }, [fetchFollowUps]);
 
-    const handleScheduleAll = useCallback(async () => {
-        try {
-            await NotificationService.scheduleAll(DEMO_FOLLOWUPS);
-            setScheduled(true);
-            Alert.alert('Updated', 'All follow-up reminders have been re-synced.');
-        } catch (e: any) {
-            Alert.alert('Error', 'Failed to synchronize reminders.');
+    const handleSnooze = useCallback(async (task: FollowUpTask) => {
+        const taskId = getId(task);
+        if (!taskId) {
+            Alert.alert('Error', 'Could not identify this follow-up. Please refresh and try again.');
+            return;
         }
-    }, []);
+        Alert.alert(
+            'Snooze Follow-up',
+            `Snooze reminder for ${task.name}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Snooze 15 min',
+                    onPress: async () => {
+                        setActionLoading(taskId);
+                        try {
+                            await api.snoozeNotification(taskId, 15);
+                            Alert.alert('Snoozed 💤', `Reminder snoozed for 15 minutes.`);
+                            fetchFollowUps(true);
+                        } catch {
+                            Alert.alert('Error', 'Could not snooze. Try again.');
+                        } finally {
+                            setActionLoading(null);
+                        }
+                    },
+                },
+            ]
+        );
+    }, [fetchFollowUps]);
 
-    const handleCancelAll = useCallback(async () => {
-        await NotificationService.cancelAll();
-        setScheduled(false);
-        Alert.alert('Cancelled', 'All active reminders have been cleared.');
-    }, []);
+    // ── Render item ─────────────────────────────────────────────────────────────
 
-    const renderItem = ({ item }: { item: FollowUp }) => (
-        <GlassCard style={styles.card}>
-            <View style={styles.cardContent}>
-                <View style={[styles.avatarContainer, { backgroundColor: `${colors.primary}15` }]}>
-                    <User size={18} color={colors.primary} />
-                </View>
-                
-                <View style={styles.mainInfo}>
-                    <View style={styles.rowBetween}>
-                        <Text style={styles.nameText}>{item.name}</Text>
-                        <View style={[styles.statusBadge, item.status === 'Pending' ? styles.pendingBadge : styles.doneBadge]}>
-                            <Text style={[styles.statusText, item.status === 'Pending' ? styles.pendingText : styles.doneText]}>
-                                {item.status.toUpperCase()}
-                            </Text>
-                        </View>
+    const renderItem = ({ item }: { item: FollowUpTask }) => {
+        // console.log('item', item);
+        item.timing = getDateTimeAndMinutesLeft(item.followupDate);
+        const isOverdueItem = activeSection === 'overdue';
+        const taskId = getId(item);
+        const isActing = actionLoading === taskId;
+        const name = `${item.name}`;
+
+        return (
+            <GlassCard style={styles.card}>
+                <View style={styles.cardRow}>
+                    <View style={[
+                        styles.avatarBox,
+                        { backgroundColor: isOverdueItem ? `${colors.error}15` : `${colors.primary} 15` },
+                    ]}>
+                        {isOverdueItem
+                            ? <AlertTriangle size={20} color={colors.error} />
+                            : <Clock size={20} color={colors.primary} />}
                     </View>
 
-                    <View style={styles.metaRow}>
-                        <View style={styles.metaItem}>
-                           <Calendar size={12} color={colors.textMuted} />
-                           <Text style={styles.metaText}>{item.followUpDate}</Text>
+                    <View style={styles.cardInfo}>
+                        <Text style={styles.nameText} numberOfLines={1}>{name}</Text>
+                        <View style={styles.metaRow}>
+                            {item.timing ? (
+                                <View style={styles.metaItem}>
+                                    <Calendar size={11} color={colors.textMuted} />
+                                    <Text style={styles.metaText}>{item.timing.date}</Text>
+                                </View>
+                            ) : null}
+                            {item.timing ? (
+                                <View style={styles.metaItem}>
+                                    <AlarmClock size={11} color={colors.textMuted} />
+                                    <Text style={styles.metaText}>{item.timing.time}</Text>
+                                </View>
+                            ) : null}
                         </View>
-                        <View style={styles.metaDivider} />
-                        <View style={styles.metaItem}>
-                           <Clock size={12} color={colors.textMuted} />
-                           <Text style={styles.metaText}>{item.followUpTime}</Text>
-                        </View>
+                        {item.status ? (
+                            <View style={[styles.statusBadge, { backgroundColor: isOverdueItem ? `${colors.error} 15` : `${colors.primary} 15` }]}>
+                                <Text style={[styles.statusText, { color: isOverdueItem ? colors.error : colors.primary }]}>
+                                    {item.status.toUpperCase()}
+                                </Text>
+                            </View>
+                        ) : null}
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.cardFooter}>
-                <View style={styles.reminderInfo}>
-                   <Bell size={12} color={colors.success} />
-                   <Text style={styles.reminderText}>1h Reminder Active</Text>
+                {/* Actions */}
+                <View style={styles.actionRow}>
+                    {isActing ? (
+                        <ActivityIndicator color={colors.primary} size="small" />
+                    ) : (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.actionBtn, styles.snoozeBtn]}
+                                onPress={() => handleSnooze(item)}
+                            >
+                                <AlarmClock size={14} color={colors.textSecondary} />
+                                <Text style={styles.snoozeBtnText}>Snooze 15m</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.actionBtn, styles.completeBtn]}
+                                onPress={() => handleComplete(item)}
+                            >
+                                <CheckCircle size={14} color={colors.white} />
+                                <Text style={styles.completeBtnText}>Complete</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
-                <TouchableOpacity style={styles.testBtn} onPress={() => handleTestNow(item)}>
-                    <Zap size={13} color={colors.primaryDark} />
-                    <Text style={styles.testBtnText}>Quick Test</Text>
-                </TouchableOpacity>
-            </View>
-        </GlassCard>
-    );
+            </GlassCard>
+        );
+    };
+
+    // ── Sections ────────────────────────────────────────────────────────────────
+
+    const currentData = activeSection === 'overdue' ? overdue : upcoming;
 
     return (
-        <ScreenWrapper navigation={navigation} title="Reminders">
+        <ScreenWrapper navigation={navigation} title="Notifications">
             <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
             <SafeAreaView style={styles.container} edges={['bottom']}>
-                
-                <View style={styles.bannerArea}>
-                   <GlassCard style={styles.bannerCard}>
-                      <View style={styles.bannerHeader}>
-                         <Info size={16} color={colors.primary} />
-                         <Text style={styles.bannerTitle}>Engagement System</Text>
-                      </View>
-                      <Text style={styles.bannerDesc}>
-                         {scheduled 
-                           ? "Smart reminders are active. You'll receive a nudge 60 minutes before each scheduled call."
-                           : "Configuring notification engine..."}
-                      </Text>
-                      <TouchableOpacity onPress={handleCancelAll} style={styles.clearBtn}>
-                         <BellOff size={14} color={colors.textMuted} />
-                         <Text style={styles.clearBtnText}>Disable All</Text>
-                      </TouchableOpacity>
-                   </GlassCard>
+
+                {/* Section Tabs */}
+                <View style={styles.tabRow}>
+                    <TouchableOpacity
+                        style={[styles.tab, activeSection === 'overdue' && styles.tabActive]}
+                        onPress={() => setActiveSection('overdue')}
+                    >
+                        <AlertTriangle size={14} color={activeSection === 'overdue' ? colors.error : colors.textMuted} />
+                        <Text style={[styles.tabText, activeSection === 'overdue' && styles.tabTextActive]}>
+                            Overdue {overdue.length > 0 ? `(${overdue.length})` : ''}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tab, activeSection === 'upcoming' && styles.tabActive]}
+                        onPress={() => setActiveSection('upcoming')}
+                    >
+                        <Clock size={14} color={activeSection === 'upcoming' ? colors.primary : colors.textMuted} />
+                        <Text style={[styles.tabText, activeSection === 'upcoming' && styles.tabTextActive]}>
+                            Upcoming {upcoming.length > 0 ? `(${upcoming.length})` : ''}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                <FlatList
-                    data={DEMO_FOLLOWUPS}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.list}
-                    showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                    ListHeaderComponent={() => (
-                       <Text style={styles.listLabel}>Upcoming Follow-ups</Text>
-                    )}
-                    ListFooterComponent={() => (
-                        <TouchableOpacity style={styles.syncBtn} onPress={handleScheduleAll}>
-                            <Clock size={18} color={colors.white} />
-                            <Text style={styles.syncBtnText}>Re-Sync All Reminders</Text>
-                        </TouchableOpacity>
-                    )}
-                />
+                {loading ? (
+                    <View style={styles.center}>
+                        <ActivityIndicator color={colors.primary} size="large" />
+                        <Text style={styles.loadingText}>Loading follow-ups...</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={currentData}
+                        keyExtractor={(item) => getId(item) || Math.random().toString()}
+                        renderItem={renderItem}
+                        contentContainerStyle={styles.list}
+                        showsVerticalScrollIndicator={false}
+                        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={() => fetchFollowUps(true)}
+                                colors={[colors.primary]}
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyBox}>
+                                <Inbox size={52} color={colors.divider} />
+                                <Text style={styles.emptyTitle}>
+                                    {activeSection === 'overdue' ? 'No Overdue Tasks 🎉' : 'No Upcoming Follow-ups'}
+                                </Text>
+                                <Text style={styles.emptySubtitle}>
+                                    {activeSection === 'overdue'
+                                        ? 'You are all caught up!'
+                                        : 'No follow-ups scheduled for the next 60 minutes.'}
+                                </Text>
+                            </View>
+                        }
+                    />
+                )}
             </SafeAreaView>
         </ScreenWrapper>
     );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    bannerArea: {
-        padding: 16,
-    },
-    bannerCard: {
-        padding: 16,
-        gap: 8,
-    },
-    bannerHeader: {
+    tabRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    bannerTitle: {
-        ...theme.typography.caption,
-        fontWeight: '800',
-        color: colors.textPrimary,
-        letterSpacing: 0.5,
-    },
-    bannerDesc: {
-        ...theme.typography.body,
-        fontSize: 13,
-        color: colors.textSecondary,
-        lineHeight: 18,
-    },
-    clearBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        alignSelf: 'flex-end',
-        marginTop: 4,
-        gap: 6,
+        backgroundColor: colors.surface,
+        marginHorizontal: 16,
+        marginTop: 12,
+        marginBottom: 4,
+        borderRadius: 14,
         padding: 4,
+        gap: 4,
     },
-    clearBtnText: {
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        borderRadius: 10,
+        gap: 6,
+    },
+    tabActive: {
+        backgroundColor: colors.background,
+        ...theme.shadows.sm,
+    },
+    tabText: {
         ...theme.typography.caption,
-        fontSize: 11,
-        color: colors.textMuted,
         fontWeight: '700',
-    },
-    list: { 
-        paddingHorizontal: 16,
-        paddingBottom: 40,
-    },
-    listLabel: {
-        ...theme.typography.caption,
-        fontWeight: '800',
         color: colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 16,
-        marginTop: 8,
+        fontSize: 13,
+    },
+    tabTextActive: {
+        color: colors.textPrimary,
+    },
+    list: {
+        padding: 16,
+        paddingBottom: 40,
     },
     card: {
         padding: 16,
+        gap: 14,
     },
-    cardContent: {
+    cardRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 14,
     },
-    avatarContainer: {
-        width: 44,
-        height: 44,
+    avatarBox: {
+        width: 46,
+        height: 46,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    mainInfo: {
+    cardInfo: {
         flex: 1,
         gap: 4,
-    },
-    rowBetween: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
     },
     nameText: {
         ...theme.typography.h3,
         fontSize: 16,
         color: colors.textPrimary,
     },
-    statusBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 6,
-    },
-    pendingBadge: { backgroundColor: 'rgba(255,193,7,0.1)' },
-    doneBadge: { backgroundColor: 'rgba(16,185,129,0.1)' },
-    statusText: {
-        ...theme.typography.caption,
-        fontSize: 10,
-        fontWeight: '800',
-    },
-    pendingText: { color: colors.primaryDark },
-    doneText: { color: colors.success },
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flexWrap: 'wrap',
     },
     metaItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 4,
     },
     metaText: {
         ...theme.typography.caption,
         color: colors.textMuted,
         fontWeight: '600',
-    },
-    metaDivider: {
-        width: 1,
-        height: 10,
-        backgroundColor: colors.divider,
-    },
-    cardFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 16,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.3)',
-    },
-    reminderInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    reminderText: {
-        ...theme.typography.caption,
-        color: colors.success,
-        fontSize: 10,
-        fontWeight: '700',
-    },
-    testBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.primary,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        gap: 6,
-        ...theme.shadows.sm,
-    },
-    testBtnText: {
-        ...theme.typography.button,
         fontSize: 11,
-        color: colors.primaryDark,
+    },
+    statusBadge: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        marginTop: 2,
+    },
+    statusText: {
+        ...theme.typography.caption,
+        fontSize: 10,
         fontWeight: '800',
     },
-    syncBtn: {
+    actionRow: {
+        flexDirection: 'row',
+        gap: 10,
+        justifyContent: 'flex-end',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.06)',
+        paddingTop: 12,
+    },
+    actionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#1E293B', // Slate back
-        marginTop: 24,
-        paddingVertical: 16,
-        borderRadius: 16,
-        gap: 10,
-        ...theme.shadows.md,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+        gap: 6,
     },
-    syncBtnText: {
-        ...theme.typography.button,
-        color: colors.white,
-        fontSize: 15,
+    snoozeBtn: {
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.divider,
+    },
+    snoozeBtnText: {
+        ...theme.typography.caption,
         fontWeight: '700',
+        color: colors.textSecondary,
+        fontSize: 12,
+    },
+    completeBtn: {
+        backgroundColor: colors.success,
+    },
+    completeBtnText: {
+        ...theme.typography.caption,
+        fontWeight: '700',
+        color: colors.white,
+        fontSize: 12,
+    },
+    center: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    loadingText: {
+        ...theme.typography.body,
+        color: colors.textMuted,
+    },
+    emptyBox: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 80,
+        paddingHorizontal: 40,
+        gap: 10,
+    },
+    emptyTitle: {
+        ...theme.typography.h3,
+        color: colors.textPrimary,
+        textAlign: 'center',
+    },
+    emptySubtitle: {
+        ...theme.typography.body,
+        color: colors.textMuted,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

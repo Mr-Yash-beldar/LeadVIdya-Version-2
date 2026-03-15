@@ -166,9 +166,10 @@ export const api = {
     createLead: async (data: { firstName: string; lastName: string; phone: string; campaign: string; date?: string }) => {
         try {
             const response = await apiClient.post('/leads/create-and-assign', data);
+            // console.log("create lead response", response.data.message);
             return response.data;
         } catch (error: any) {
-            console.error('Create Lead Error:', error);
+            console.error('Create Lead Error:', error.response?.data.message);
             throw error;
         }
     },
@@ -224,6 +225,117 @@ export const api = {
         } catch (error: any) {
             console.error('Get Lead Error:', error.response?.data || error.message);
             throw error;
+        }
+    },
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Notifications API Endpoints
+    // ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 1. Get My Follow-Ups
+     * Retrieves a comprehensive list of all leads assigned to the current user that have a status of "follow up".
+     * @param dateQuery Optional. 'overdue', 'upcoming', or a specific date string.
+     */
+    getMyFollowUps: async (dateQuery?: string) => {
+        try {
+            const response = await apiClient.get('/notifications/my-followups', {
+                params: dateQuery ? { date: dateQuery } : undefined
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Get My Follow-Ups Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * 2. Get Urgent Notifications
+     * Fetches tasks that require immediate action, intended for real-time alerts or popups.
+     * Returns arrays for 'upcoming' (within 60 mins) and 'overdue'.
+     */
+    getUrgentNotifications: async () => {
+        try {
+            const response = await apiClient.get('/notifications/urgent');
+            return response.data?.data || response.data;
+        } catch (error: any) {
+            console.error('Get Urgent Notifications Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * 3. Get Notification Count
+     * Lightweight endpoint used primarily to update the notification bell icon/badge.
+     */
+    getNotificationCount: async () => {
+        try {
+            const response = await apiClient.get('/notifications/count');
+            return response.data?.data || response.data;
+        } catch (error: any) {
+            console.error('Get Notification Count Error:', error.response?.data || error.message);
+            return null;
+        }
+    },
+
+    /**
+     * 4. Mark Notification as Read
+     * Signals that the user has acknowledged or viewed the notification for a specific lead.
+     */
+    markNotificationAsRead: async (leadId: string) => {
+        try {
+            const response = await apiClient.post(`/notifications/${leadId}/read`);
+            return response.data;
+        } catch (error: any) {
+            console.error('Mark Notification Read Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * 5. Snooze Notification
+     * Delays a follow-up task by a specified number of minutes.
+     */
+    snoozeNotification: async (leadId: string, minutes: number = 15) => {
+        try {
+            const response = await apiClient.post(`/notifications/${leadId}/snooze`, { minutes });
+            return response.data;
+        } catch (error: any) {
+            console.error('Snooze Notification Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * 6. Complete Follow-Up
+     * Marks the follow-up task as finished, updating leadStatus and logging notes.
+     */
+    completeFollowUp: async (leadId: string, leadStatus: string = 'qualified', notes: string = '') => {
+        try {
+            const response = await apiClient.post(`/notifications/${leadId}/complete`, {
+                leadStatus,
+                notes
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Complete Follow-Up Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * 7. Register FCM Device Token
+     * Stores the device's FCM push token on the backend so the server can
+     * send killed-app push notifications to this specific device.
+     */
+    registerFCMToken: async (token: string) => {
+        try {
+            const response = await apiClient.post('/notifications/register-token', { token });
+            return response.data;
+        } catch (error: any) {
+            // Best-effort — don't crash the app if this fails
+            console.warn('Register FCM Token Error:', error.response?.data || error.message);
+            return null;
         }
     },
 };

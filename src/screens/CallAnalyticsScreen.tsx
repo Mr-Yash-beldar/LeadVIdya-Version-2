@@ -139,15 +139,15 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
 
   const fetchReport = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
-        setRefreshing(true);
-        checkNow();
+      setRefreshing(true);
+      checkNow();
     }
     else setLoading(true);
     try {
       const { start, end } = getDateRange();
       const response = await api.getCallReports(start, end);
       if (response.success) {
-        setMetrics(ReportService.calculateMetrics(response.data));
+        setMetrics(ReportService.calculateMetrics(response.data, response.uniqueCallsCount));
       } else {
         Alert.alert('Report Error', response.message || 'Could not fetch report data.');
       }
@@ -212,6 +212,7 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
               </View>
               <View style={styles.grid}>
                 <MetricCard label="Total Calls" value={metrics.callOverview.totalCalls} icon={Phone} color={colors.primary} />
+                <MetricCard label="Unique Calls" value={metrics.callOverview.uniqueCalls} icon={Phone} color={colors.primary} />
                 <MetricCard label="Total Time" value={metrics.callOverview.totalCallTime} icon={Clock} color={colors.accent} />
                 <MetricCard label="Avg Duration" value={metrics.callOverview.avgCallDuration} icon={Activity} color={colors.warning} />
                 <MetricCard label="Connected" value={metrics.callOverview.totalConnected} icon={Zap} color={colors.success} />
@@ -252,67 +253,67 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
         <Modal visible={showRangeModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <GlassCard style={styles.modalSheet}>
-               <View style={styles.modalHeader}>
-                 <Text style={styles.modalTitle}>Select Date Range</Text>
-                 <TouchableOpacity onPress={() => setShowRangeModal(false)} style={styles.closeBtn}>
-                   <X size={24} color={colors.textPrimary} />
-                 </TouchableOpacity>
-               </View>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Date Range</Text>
+                <TouchableOpacity onPress={() => setShowRangeModal(false)} style={styles.closeBtn}>
+                  <X size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
 
-               <View style={styles.modalBody}>
-                 <View style={styles.datePickerSection}>
-                    <Text style={styles.dateLabel}>Start Date</Text>
-                    <TouchableOpacity 
-                      style={styles.dateDisplay} 
-                      onPress={() => { setPickerTarget('start'); setShowDatePicker(true); }}
-                    >
-                      <Calendar size={18} color={colors.primary} />
-                      <Text style={styles.dateText}>{fmtDate(customStart)}</Text>
-                    </TouchableOpacity>
-                 </View>
+              <View style={styles.modalBody}>
+                <View style={styles.datePickerSection}>
+                  <Text style={styles.dateLabel}>Start Date</Text>
+                  <TouchableOpacity
+                    style={styles.dateDisplay}
+                    onPress={() => { setPickerTarget('start'); setShowDatePicker(true); }}
+                  >
+                    <Calendar size={18} color={colors.primary} />
+                    <Text style={styles.dateText}>{fmtDate(customStart)}</Text>
+                  </TouchableOpacity>
+                </View>
 
-                 <View style={styles.datePickerSection}>
-                    <Text style={styles.dateLabel}>End Date</Text>
-                    <TouchableOpacity 
-                      style={styles.dateDisplay} 
-                      onPress={() => { setPickerTarget('end'); setShowDatePicker(true); }}
-                    >
-                      <Calendar size={18} color={colors.primary} />
-                      <Text style={styles.dateText}>{fmtDate(customEnd)}</Text>
-                    </TouchableOpacity>
-                 </View>
+                <View style={styles.datePickerSection}>
+                  <Text style={styles.dateLabel}>End Date</Text>
+                  <TouchableOpacity
+                    style={styles.dateDisplay}
+                    onPress={() => { setPickerTarget('end'); setShowDatePicker(true); }}
+                  >
+                    <Calendar size={18} color={colors.primary} />
+                    <Text style={styles.dateText}>{fmtDate(customEnd)}</Text>
+                  </TouchableOpacity>
+                </View>
 
-                 {showDatePicker && (
-                    <DateTimePicker
-                      value={pickerTarget === 'start' ? customStart : customEnd}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                      maximumDate={new Date()}
-                      onChange={(event, selected) => {
-                        setShowDatePicker(Platform.OS === 'ios');
-                        if (selected) {
-                          if (pickerTarget === 'start') setCustomStart(selected);
-                          else setCustomEnd(selected);
-                        }
-                      }}
-                    />
-                 )}
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={pickerTarget === 'start' ? customStart : customEnd}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    maximumDate={new Date()}
+                    onChange={(event, selected) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (selected) {
+                        if (pickerTarget === 'start') setCustomStart(selected);
+                        else setCustomEnd(selected);
+                      }
+                    }}
+                  />
+                )}
 
-                 <TouchableOpacity 
-                   style={styles.applyBtn}
-                   onPress={() => {
-                     if (customStart > customEnd) {
-                       Alert.alert('Invalid Range', 'Start date cannot be after end date.');
-                       return;
-                     }
-                     setDateFilter('custom');
-                     setShowRangeModal(false);
-                     fetchReport();
-                   }}
-                 >
-                   <Text style={styles.applyBtnText}>Apply Custom Range</Text>
-                 </TouchableOpacity>
-               </View>
+                <TouchableOpacity
+                  style={styles.applyBtn}
+                  onPress={() => {
+                    if (customStart > customEnd) {
+                      Alert.alert('Invalid Range', 'Start date cannot be after end date.');
+                      return;
+                    }
+                    setDateFilter('custom');
+                    setShowRangeModal(false);
+                    fetchReport();
+                  }}
+                >
+                  <Text style={styles.applyBtnText}>Apply Custom Range</Text>
+                </TouchableOpacity>
+              </View>
             </GlassCard>
           </View>
         </Modal>

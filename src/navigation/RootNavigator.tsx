@@ -32,6 +32,7 @@ import { OtpVerificationScreen } from '../screens/Auth/OtpVerificationScreen';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { View, Text, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useAutoSync } from '../hooks/useAutoSync';
+import { useAutoNotifications } from '../hooks/useAutoNotifications';
 import { navigationRef } from '../services/apiClient';
 import { CallScreen } from '../screens/CallScreen';
 import { OnboardingScreen } from '../screens/Onboarding/OnboardingScreen';
@@ -120,6 +121,9 @@ export const RootNavigator = () => {
 
 const RootContent = () => {
   const { user, loading, isFirstLaunch } = useAuth();
+  
+  // Start background notifications polling
+  useAutoNotifications();
 
   useEffect(() => {
     const checkPendingDispose = async () => {

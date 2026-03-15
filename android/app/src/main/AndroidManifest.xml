@@ -45,7 +45,17 @@
       <service android:name=".BackgroundCallTaskService" android:foregroundServiceType="specialUse" />
       <service android:name=".IncomingCallLookupTaskService" android:foregroundServiceType="specialUse" />
 
+      <!-- Firebase Cloud Messaging service (handles killed-app push notifications) -->
+      <service
+          android:name="io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="com.google.firebase.MESSAGING_EVENT" />
+          </intent-filter>
+      </service>
+
       <!-- Background call receiver: fires even when app is closed -->
+
       <receiver
           android:name=".BackgroundCallReceiver"
           android:exported="true"

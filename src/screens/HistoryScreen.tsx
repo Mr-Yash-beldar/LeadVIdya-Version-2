@@ -48,7 +48,8 @@ import {
   User,
   Zap,
   ChevronRight,
-  Layers
+  Layers,
+  Bell,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
@@ -96,6 +97,7 @@ const HistoryScreen: React.FC = () => {
   const [isDialerVisible, setIsDialerVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState('');
+  const [notifCount, setNotifCount] = useState(0);
 
   // -- Services --
   const callLogService = CallLogService;
@@ -114,6 +116,20 @@ const HistoryScreen: React.FC = () => {
   }, [checkAndPostNewCalls]);
 
   const { checkNow } = useNetwork();
+
+  const fetchNotifCount = useCallback(async () => {
+    try {
+      const data = await api.getNotificationCount();
+      // Backend may return { count: N } or just a number
+      const count =
+        typeof data === 'number'
+          ? data
+          : (data?.count ?? data?.total ?? 0);
+      setNotifCount(Number(count) || 0);
+    } catch {
+      // Silently ignore — badge is optional
+    }
+  }, []);
 
   const fetchLogs = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -161,7 +177,8 @@ const HistoryScreen: React.FC = () => {
     useCallback(() => {
       loadLeadsForMatching();
       fetchLogs();
-    }, [fetchLogs, loadLeadsForMatching])
+      fetchNotifCount();
+    }, [fetchLogs, loadLeadsForMatching, fetchNotifCount])
   );
 
   // Computed Call Logs (Matched & Filtered)
@@ -341,6 +358,22 @@ const HistoryScreen: React.FC = () => {
                  ))}
                </View>
              )}
+
+            {/* Bell with notification badge */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('FollowUp')}
+              style={styles.bellBtn}
+            >
+              <Bell size={20} color={colors.textSecondary} />
+              {notifCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {notifCount > 99 ? '99+' : notifCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={() => navigation.navigate('More')} style={styles.settingsBtn}>
               <Settings size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -472,6 +505,32 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: colors.background,
     borderRadius: 12,
+  },
+  bellBtn: {
+    padding: 8,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.white,
+    lineHeight: 12,
   },
   toggleContainer: {
     flexDirection: 'row',

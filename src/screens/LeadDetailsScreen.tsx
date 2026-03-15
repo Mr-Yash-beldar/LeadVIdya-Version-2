@@ -18,24 +18,25 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  Phone, 
-  ChevronUp, 
-  ChevronDown, 
-  Info, 
-  History, 
-  Edit3, 
-  User, 
-  Mail, 
-  MapPin, 
-  Calendar, 
+import {
+  ArrowLeft,
+  RefreshCw,
+  Phone,
+  ChevronUp,
+  ChevronDown,
+  Info,
+  History,
+  Edit3,
+  User,
+  Mail,
+  MapPin,
+  Calendar,
   Zap,
   Activity,
   BarChart3,
   Clock,
-  Star as StarIcon
+  Star as StarIcon,
+  Megaphone
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
@@ -90,6 +91,7 @@ export const LeadDetailsScreen = () => {
     if (showSkeleton) setLeadLoading(true);
     try {
       const fresh = await api.getLeadById(id);
+      // console.log("Fresh lead", fresh);
       if (fresh) setLead(fresh);
     } catch (e) {
       console.error('[LeadDetails] Failed to fetch lead:', e);
@@ -189,130 +191,134 @@ export const LeadDetailsScreen = () => {
     <ScreenWrapper navigation={navigation} title="Lead Details">
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.container}>
-        
+
         {/* Modern Segmented Tab Bar */}
         <View style={styles.tabBarContainer}>
-           <View style={styles.segmentedControl}>
-             {(['LEAD_INFO', 'DISPOSE_LEAD'] as Tab[]).map((t) => (
-                <TouchableOpacity 
-                  key={t}
-                  style={[styles.segmentBtn, activeTab === t && styles.segmentBtnActive]}
-                  onPress={() => setActiveTab(t)}
-                >
-                  <Text style={[styles.segmentText, activeTab === t && styles.segmentTextActive]}>
-                    {t === 'LEAD_INFO' ? 'Overview' : 'Disposition'}
-                  </Text>
-                </TouchableOpacity>
-             ))}
-           </View>
+          <View style={styles.segmentedControl}>
+            {(['LEAD_INFO', 'DISPOSE_LEAD'] as Tab[]).map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.segmentBtn, activeTab === t && styles.segmentBtnActive]}
+                onPress={() => setActiveTab(t)}
+              >
+                <Text style={[styles.segmentText, activeTab === t && styles.segmentTextActive]}>
+                  {t === 'LEAD_INFO' ? 'Overview' : 'Disposition'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {leadLoading ? renderSkeleton() : (
           <View style={styles.mainContent}>
             {activeTab === 'LEAD_INFO' ? (
               <View style={styles.flexOne}>
-                 {/* Sub Tabs for Info */}
-                 <View style={styles.subTabContainer}>
-                    <TouchableOpacity 
-                      style={[styles.subTab, subTab === 'About' && styles.subTabActive]}
-                      onPress={() => setSubTab('About')}
-                    >
-                      <Info size={16} color={subTab === 'About' ? colors.primaryDark : colors.textMuted} />
-                      <Text style={[styles.subTabText, subTab === 'About' && styles.subTabTextActive]}>About</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.subTab, subTab === 'Timeline' && styles.subTabActive]}
-                      onPress={() => setSubTab('Timeline')}
-                    >
-                      <History size={16} color={subTab === 'Timeline' ? colors.primaryDark : colors.textMuted} />
-                      <Text style={[styles.subTabText, subTab === 'Timeline' && styles.subTabTextActive]}>Timeline</Text>
-                    </TouchableOpacity>
-                 </View>
+                {/* Sub Tabs for Info */}
+                <View style={styles.subTabContainer}>
+                  <TouchableOpacity
+                    style={[styles.subTab, subTab === 'About' && styles.subTabActive]}
+                    onPress={() => setSubTab('About')}
+                  >
+                    <Info size={16} color={subTab === 'About' ? colors.primaryDark : colors.textMuted} />
+                    <Text style={[styles.subTabText, subTab === 'About' && styles.subTabTextActive]}>About</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subTab, subTab === 'Timeline' && styles.subTabActive]}
+                    onPress={() => setSubTab('Timeline')}
+                  >
+                    <History size={16} color={subTab === 'Timeline' ? colors.primaryDark : colors.textMuted} />
+                    <Text style={[styles.subTabText, subTab === 'Timeline' && styles.subTabTextActive]}>Timeline</Text>
+                  </TouchableOpacity>
+                </View>
 
-                 <ScrollView style={styles.flexOne} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    {subTab === 'About' ? (
-                      <>
-                        <GlassCard style={styles.infoCard}>
-                          <View style={styles.sectionHeader}>
-                            <View style={styles.sectionTitleRow}>
-                               <User size={18} color={colors.primary} />
-                               <Text style={styles.sectionTitle}>Basic Information</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setBasicDetailsOpen(!basicDetailsOpen)}>
-                               {basicDetailsOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
-                            </TouchableOpacity>
+                <ScrollView style={styles.flexOne} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                  {subTab === 'About' ? (
+                    <>
+                      <GlassCard style={styles.infoCard}>
+                        <View style={styles.sectionHeader}>
+                          <View style={styles.sectionTitleRow}>
+                            <User size={18} color={colors.primary} />
+                            <Text style={styles.sectionTitle}>Basic Information</Text>
                           </View>
-                          {basicDetailsOpen && (
-                             <View style={styles.sectionBody}>
-                                <DetailItem label="Full Name" value={`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || '-'} icon={User} />
-                                <DetailItem label="Phone" value={lead.phone || '-'} icon={Phone} isInteractive />
-                                <DetailItem label="Alt Phone" value={lead.alt_phone || '-'} icon={Phone} />
-                                <DetailItem label="Added On" value={lead.created ? new Date(lead.created).toLocaleDateString() : '-'} icon={Calendar} />
-                             </View>
-                          )}
-                        </GlassCard>
+                          <TouchableOpacity onPress={() => setBasicDetailsOpen(!basicDetailsOpen)}>
+                            {basicDetailsOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
+                          </TouchableOpacity>
+                        </View>
 
-                        <GlassCard style={styles.infoCard}>
-                          <View style={styles.sectionHeader}>
-                            <View style={styles.sectionTitleRow}>
-                               <Zap size={18} color={colors.warning} />
-                               <Text style={styles.sectionTitle}>Progress & Status</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setProgressOpen(!progressOpen)}>
-                               {progressOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
-                            </TouchableOpacity>
+                        {basicDetailsOpen && (
+                          <View style={styles.sectionBody}>
+                            <DetailItem label="Full Name" value={`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || '-'} icon={User} />
+                            <DetailItem label="Phone" value={lead.phone || '-'} icon={Phone} isInteractive />
+                            <DetailItem label="Alt Phone" value={lead.alt_phone || '-'} icon={Phone} />
+
+                            <DetailItem label="Added On" value={lead.created ? new Date(lead.created).toLocaleDateString() : '-'} icon={Calendar} />
                           </View>
-                          {progressOpen && (
-                             <View style={styles.sectionBody}>
-                                <View style={styles.badgeRow}>
-                                   <Text style={styles.detailLabel}>Lead Status</Text>
-                                   <View style={styles.statusBadge}>
-                                      <Text style={styles.statusText}>{lead.leadStatus || 'OPEN'}</Text>
-                                   </View>
-                                </View>
-                                <DetailItem label="Lead Source" value={lead.leadSource || 'Manual'} icon={Globe} />
-                                <DetailItem label="Lead Segment" value={lead.tag || '-'} icon={TagIcon} />
-                                <DetailItem label="Expected Value" value={lead.expectedValue ? `₹${lead.expectedValue}` : '-'} icon={TrendingUp} />
-                                <DetailItem label="Follow-up" value={lead.next_followup_date ? new Date(lead.next_followup_date).toLocaleString() : 'Not Set'} icon={Clock} />
-                             </View>
-                          )}
-                        </GlassCard>
-                      </>
-                    ) : (
-                      <TimelineList
-                        lead={lead}
-                        timelineLogs={timelineLogs}
-                        timelineLoading={timelineLoading}
-                        expandedLogIndex={expandedLogIndex}
-                        setExpandedLogIndex={setExpandedLogIndex}
-                      />
-                    )}
-                 </ScrollView>
+                        )}
+                      </GlassCard>
+
+                      <GlassCard style={styles.infoCard}>
+                        <View style={styles.sectionHeader}>
+                          <View style={styles.sectionTitleRow}>
+                            <Zap size={18} color={colors.warning} />
+                            <Text style={styles.sectionTitle}>Progress & Status</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setProgressOpen(!progressOpen)}>
+                            {progressOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
+                          </TouchableOpacity>
+                        </View>
+                        {progressOpen && (
+                          <View style={styles.sectionBody}>
+                            <View style={styles.badgeRow}>
+                              <Text style={styles.detailLabel}>Lead Status</Text>
+                              <View style={styles.statusBadge}>
+                                <Text style={styles.statusText}>{lead.leadStatus || 'OPEN'}</Text>
+                              </View>
+                            </View>
+                            <DetailItem label="Assigned to" value={typeof lead.assigned_to === 'string' ? lead.assigned_to : lead.assigned_to?.name || '-'} icon={User} />
+                            <DetailItem label="Campaign" value={lead.campaign?.name || '-'} icon={Megaphone} />
+                            <DetailItem label="Lead Source" value={lead.leadSource || 'Manual'} icon={Globe} />
+                            <DetailItem label="Lead Segment" value={lead.tag || '-'} icon={TagIcon} />
+                            <DetailItem label="Expected Value" value={lead.expectedValue ? `₹${lead.expectedValue}` : '-'} icon={TrendingUp} />
+                            <DetailItem label="Follow-up" value={lead.next_followup_date ? new Date(lead.next_followup_date).toLocaleString() : 'Not Set'} icon={Clock} />
+                          </View>
+                        )}
+                      </GlassCard>
+                    </>
+                  ) : (
+                    <TimelineList
+                      lead={lead}
+                      timelineLogs={timelineLogs}
+                      timelineLoading={timelineLoading}
+                      expandedLogIndex={expandedLogIndex}
+                      setExpandedLogIndex={setExpandedLogIndex}
+                    />
+                  )}
+                </ScrollView>
               </View>
             ) : (
               <ScrollView style={styles.flexOne} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                 <DisposeForm 
-                    connected={connected}
-                    setConnected={setConnected}
-                    disposeStatus={disposeStatus}
-                    setDisposeStatus={setDisposeStatus}
-                    description={description}
-                    setDescription={setDescription}
-                    expectedValue={expectedValue}
-                    setExpectedValue={setExpectedValue}
-                    followUpDate={followUpDate}
-                    setFollowUpDate={setFollowUpDate}
-                    showDatePicker={showDatePicker}
-                    setShowDatePicker={setShowDatePicker}
-                    showTimePicker={showTimePicker}
-                    setShowTimePicker={setShowTimePicker}
-                    isProcessing={isProcessing}
-                    onProceed={handleProceed}
-                    onSendMessage={() => Linking.openURL(`sms:${lead.phone}`)}
-                    onSendWhatsApp={() => Linking.openURL(`whatsapp://send?phone=+91${lead.phone}`)}
-                    onDateChange={(e, d) => { setShowDatePicker(Platform.OS === 'ios'); if(d) setFollowUpDate(d); }}
-                    onTimeChange={(e, d) => { setShowTimePicker(Platform.OS === 'ios'); if(d) setFollowUpDate(d); }}
-                 />
+                <DisposeForm
+                  connected={connected}
+                  setConnected={setConnected}
+                  disposeStatus={disposeStatus}
+                  setDisposeStatus={setDisposeStatus}
+                  description={description}
+                  setDescription={setDescription}
+                  expectedValue={expectedValue}
+                  setExpectedValue={setExpectedValue}
+                  followUpDate={followUpDate}
+                  setFollowUpDate={setFollowUpDate}
+                  showDatePicker={showDatePicker}
+                  setShowDatePicker={setShowDatePicker}
+                  showTimePicker={showTimePicker}
+                  setShowTimePicker={setShowTimePicker}
+                  isProcessing={isProcessing}
+                  onProceed={handleProceed}
+                  onSendMessage={() => Linking.openURL(`sms:${lead.phone}`)}
+                  onSendWhatsApp={() => Linking.openURL(`whatsapp://send?phone=+91${lead.phone}`)}
+                  onDateChange={(e, d) => { setShowDatePicker(Platform.OS === 'ios'); if (d) setFollowUpDate(d); }}
+                  onTimeChange={(e, d) => { setShowTimePicker(Platform.OS === 'ios'); if (d) setFollowUpDate(d); }}
+                />
               </ScrollView>
             )}
           </View>
@@ -320,12 +326,12 @@ export const LeadDetailsScreen = () => {
 
         {/* Global Footer Call FAB */}
         {!leadLoading && activeTab === 'LEAD_INFO' && (
-           <View style={styles.footer}>
-              <TouchableOpacity style={styles.callFab} onPress={handleCallNow} activeOpacity={0.8}>
-                 <Phone size={20} color={colors.white} />
-                 <Text style={styles.callFabText}>Initiate Call</Text>
-              </TouchableOpacity>
-           </View>
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.callFab} onPress={handleCallNow} activeOpacity={0.8}>
+              <Phone size={20} color={colors.white} />
+              <Text style={styles.callFabText}>Initiate Call</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </ScreenWrapper>

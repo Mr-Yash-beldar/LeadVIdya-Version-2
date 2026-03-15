@@ -1,0 +1,42 @@
+diff --git a/node_modules/react-native-background-timer/android/src/main/java/com/ocetnik/timer/BackgroundTimerModule.java b/node_modules/react-native-background-timer/android/src/main/java/com/ocetnik/timer/BackgroundTimerModule.java
+index 1f87803..c9bee0d 100644
+--- a/node_modules/react-native-background-timer/android/src/main/java/com/ocetnik/timer/BackgroundTimerModule.java
++++ b/node_modules/react-native-background-timer/android/src/main/java/com/ocetnik/timer/BackgroundTimerModule.java
+@@ -89,6 +89,16 @@ public class BackgroundTimerModule extends ReactContextBaseJavaModule {
+         }, (long) timeout);
+     }
+ 
++    @ReactMethod
++    public void addListener(String eventName) {
++        // Keep: Required for RN built-in Event Emitter Calls.
++    }
++
++    @ReactMethod
++    public void removeListeners(Integer count) {
++        // Keep: Required for RN built-in Event Emitter Calls.
++    }
++
+     /*@ReactMethod
+     public void clearTimeout(final int id) {
+         // todo one day..
+diff --git a/node_modules/react-native-background-timer/index.js b/node_modules/react-native-background-timer/index.js
+index f64e4b6..37c6dd0 100644
+--- a/node_modules/react-native-background-timer/index.js
++++ b/node_modules/react-native-background-timer/index.js
+@@ -7,6 +7,16 @@ import {
+ } from 'react-native';
+ 
+ const { RNBackgroundTimer } = NativeModules;
++
++if (RNBackgroundTimer) {
++  if (typeof RNBackgroundTimer.addListener !== 'function') {
++    RNBackgroundTimer.addListener = function() {};
++  }
++  if (typeof RNBackgroundTimer.removeListeners !== 'function') {
++    RNBackgroundTimer.removeListeners = function() {};
++  }
++}
++
+ const Emitter = new NativeEventEmitter(RNBackgroundTimer);
+ 
+ class BackgroundTimer {

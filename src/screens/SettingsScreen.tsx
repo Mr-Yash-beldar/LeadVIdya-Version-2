@@ -117,7 +117,7 @@ export const SettingsScreen = () => {
               icon: Bell,
               title: 'Notifications',
               subtitle: 'Manage your alerts and preferences',
-              onPress: () => { }
+              onPress: () => navigation.navigate('FollowUp')
             })}
           </GlassCard>
         </View>

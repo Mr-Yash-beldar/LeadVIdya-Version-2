@@ -95,8 +95,8 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
   }, [item.assignedToName, item._enrichedLeadData, item.leadData]);
 
   const showAddLeadButton = useMemo(() =>
-    !isLeadLog && !isMyLead && !item._enrichedLeadId && !item.disposed,
-    [isLeadLog, isMyLead, item._enrichedLeadId, item.disposed]
+    !isLeadLog && !isMyLead && !item._enrichedLeadId && !item.disposed && !item.isAssignedToOther && !item.canAssignSelf,
+    [isLeadLog, isMyLead, item._enrichedLeadId, item.disposed, item.isAssignedToOther, item.canAssignSelf]
   );
 
   const displayName = useMemo(() => {
@@ -312,6 +312,8 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
     prevProps.item.callStatus === nextProps.item.callStatus &&
     prevProps.item.leadName === nextProps.item.leadName &&
     prevProps.item.canAssignSelf === nextProps.item.canAssignSelf &&
+    prevProps.item.isAssignedToOther === nextProps.item.isAssignedToOther &&
+    prevProps.item.assignedToName === nextProps.item.assignedToName &&
     prevProps.item.leadId === nextProps.item.leadId &&
     prevProps.simCount === nextProps.simCount &&
     prevProps.isLeadLog === nextProps.isLeadLog

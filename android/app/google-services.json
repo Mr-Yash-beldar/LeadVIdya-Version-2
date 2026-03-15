@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "251149557083",
+    "project_id": "leadvidya-b3403",
+    "storage_bucket": "leadvidya-b3403.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:251149557083:android:56d2bf0885ad75055ace7e",
+        "android_client_info": {
+          "package_name": "com.leadwave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBX4DFVfYIxjsvqXTKVzOWUA0mpubVLOQU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -8,10 +8,14 @@ export const ReportService = {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     },
 
-    calculateMetrics: (calls: any[]): ReportMetrics => {
+    calculateMetrics: (calls: any[], uniqueCallsCount: number): ReportMetrics => {
+        // calls
+        // console.log("uniqueCalls", uniqueCallsCount);
+        // const uniqueCallsCount = new Set(calls.map(call => call.callId)).size;
         const metrics: ReportMetrics = {
             callOverview: {
                 totalCalls: calls.length,
+                uniqueCalls: uniqueCallsCount,
                 totalConnected: 0,
                 totalCallTime: '00:00:00',
                 totalUnconnected: 0,

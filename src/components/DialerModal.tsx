@@ -197,7 +197,7 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
       // Re-check status to enable call button
       checkLead(number);
     } catch (error) {
-      Alert.alert('Message', 'Lead not Created');
+      Alert.alert('Message', "Lead not Created");
       console.error(error);
     } finally {
       setLoading(false);
@@ -250,7 +250,7 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
           <Text style={styles.addLeadText}>Assign to Self</Text>
         </TouchableOpacity>
       );
-    } 
+    }
 
     if (leadStatus.status === 'assigned') {
       return (
