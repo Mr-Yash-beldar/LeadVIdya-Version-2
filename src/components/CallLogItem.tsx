@@ -101,8 +101,8 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
 
   const displayName = useMemo(() => {
     // If we have an explicit lead name from enrichment or data
-    const explicitLeadName = item.leadName || 
-                             (item.leadData ? `${item.leadData.firstName || ''} ${item.leadData.lastName || ''}`.trim() : null);
+    const explicitLeadName = item.leadName ||
+      (item.leadData ? `${item.leadData.firstName || ''} ${item.leadData.lastName || ''}`.trim() : null);
 
     if (explicitLeadName && explicitLeadName !== '') {
       return explicitLeadName;
@@ -145,6 +145,17 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
   }, [displayNumber, item.simSlot]);
 
   const handleLeadPress = useCallback(() => {
+    // 1. ALWAYS check isAssignedToOther FIRST — prevents 403 from LeadDetails
+    if (item.isAssignedToOther) {
+      Alert.alert(
+        '🔒 Lead Not Accessible',
+        `This lead is already assigned to ${assignedToName || 'another agent'}.\nYou can only view leads assigned to you.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // 2. My lead — safe to navigate
     if (isMyLead) {
       const callInfo = {
         id: item.id,
@@ -162,15 +173,7 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
       return;
     }
 
-    if (item.isAssignedToOther) {
-      Alert.alert(
-        'Lead Assigned',
-        `This lead is assigned to ${assignedToName || 'another agent'}.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
+    // 3. Lead in system but unassigned — offer to claim
     if (item.canAssignSelf) {
       Alert.alert(
         'Assign Lead',
@@ -183,6 +186,7 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
       return;
     }
 
+    // 4. Not in system — show contact analytics
     navigation.navigate('ContactAnalytics', {
       phoneNumber: displayNumber,
       name: displayName,

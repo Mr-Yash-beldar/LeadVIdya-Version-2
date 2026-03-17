@@ -83,7 +83,7 @@ export const api = {
             return response.data.lead;
         } catch (error: any) {
             // Suppress log for expected network errors here to avoid console spam
-            if (error.message !== 'Network Error' && !error.message?.includes('timeout')) {
+            if (error.message !== 'Network Error' && !error.message?.includes('timeout') && !error.message?.includes('Rate limited')) {
                 console.error('Lead Check Error:', error.message || error);
             }
             return { success: false, error: true };
@@ -259,7 +259,9 @@ export const api = {
             const response = await apiClient.get('/notifications/urgent');
             return response.data?.data || response.data;
         } catch (error: any) {
-            console.error('Get Urgent Notifications Error:', error.response?.data || error.message);
+            if (!error.message?.includes('Rate limited')) {
+                console.error('Get Urgent Notifications Error:', error.response?.data || error.message);
+            }
             throw error;
         }
     },
@@ -273,7 +275,9 @@ export const api = {
             const response = await apiClient.get('/notifications/count');
             return response.data?.data || response.data;
         } catch (error: any) {
-            console.error('Get Notification Count Error:', error.response?.data || error.message);
+            if (!error.message?.includes('Rate limited')) {
+                console.error('Get Notification Count Error:', error.response?.data || error.message);
+            }
             return null;
         }
     },
@@ -334,7 +338,9 @@ export const api = {
             return response.data;
         } catch (error: any) {
             // Best-effort — don't crash the app if this fails
-            console.warn('Register FCM Token Error:', error.response?.data || error.message);
+            if (!error.message?.includes('Rate limited')) {
+                console.warn('Register FCM Token Error:', error.response?.data || error.message);
+            }
             return null;
         }
     },

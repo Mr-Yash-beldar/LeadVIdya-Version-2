@@ -185,41 +185,53 @@ export const FollowUpScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
         return (
             <GlassCard style={styles.card}>
-                <View style={styles.cardRow}>
-                    <View style={[
-                        styles.avatarBox,
-                        { backgroundColor: isOverdueItem ? `${colors.error}15` : `${colors.primary} 15` },
-                    ]}>
-                        {isOverdueItem
-                            ? <AlertTriangle size={20} color={colors.error} />
-                            : <Clock size={20} color={colors.primary} />}
-                    </View>
+                <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                        const leadId = (item as any).leadId || taskId;
+                        if (leadId) {
+                            navigation.navigate('LeadDetails', { leadId });
+                        } else {
+                            Alert.alert('Error', 'Lead ID not found for this task.');
+                        }
+                    }}
+                >
+                    <View style={styles.cardRow}>
+                        <View style={[
+                            styles.avatarBox,
+                            { backgroundColor: isOverdueItem ? `${colors.error}15` : `${colors.primary} 15` },
+                        ]}>
+                            {isOverdueItem
+                                ? <AlertTriangle size={20} color={colors.error} />
+                                : <Clock size={20} color={colors.primary} />}
+                        </View>
 
-                    <View style={styles.cardInfo}>
-                        <Text style={styles.nameText} numberOfLines={1}>{name}</Text>
-                        <View style={styles.metaRow}>
-                            {item.timing ? (
-                                <View style={styles.metaItem}>
-                                    <Calendar size={11} color={colors.textMuted} />
-                                    <Text style={styles.metaText}>{item.timing.date}</Text>
-                                </View>
-                            ) : null}
-                            {item.timing ? (
-                                <View style={styles.metaItem}>
-                                    <AlarmClock size={11} color={colors.textMuted} />
-                                    <Text style={styles.metaText}>{item.timing.time}</Text>
+                        <View style={styles.cardInfo}>
+                            <Text style={styles.nameText} numberOfLines={1}>{name}</Text>
+                            <View style={styles.metaRow}>
+                                {item.timing ? (
+                                    <View style={styles.metaItem}>
+                                        <Calendar size={11} color={colors.textMuted} />
+                                        <Text style={styles.metaText}>{item.timing.date}</Text>
+                                    </View>
+                                ) : null}
+                                {item.timing ? (
+                                    <View style={styles.metaItem}>
+                                        <AlarmClock size={11} color={colors.textMuted} />
+                                        <Text style={styles.metaText}>{item.timing.time}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            {item.status ? (
+                                <View style={[styles.statusBadge, { backgroundColor: isOverdueItem ? `${colors.error} 15` : `${colors.primary} 15` }]}>
+                                    <Text style={[styles.statusText, { color: isOverdueItem ? colors.error : colors.primary }]}>
+                                        {item.status.toUpperCase()}
+                                    </Text>
                                 </View>
                             ) : null}
                         </View>
-                        {item.status ? (
-                            <View style={[styles.statusBadge, { backgroundColor: isOverdueItem ? `${colors.error} 15` : `${colors.primary} 15` }]}>
-                                <Text style={[styles.statusText, { color: isOverdueItem ? colors.error : colors.primary }]}>
-                                    {item.status.toUpperCase()}
-                                </Text>
-                            </View>
-                        ) : null}
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* Actions */}
                 <View style={styles.actionRow}>

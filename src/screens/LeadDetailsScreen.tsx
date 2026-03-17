@@ -15,6 +15,8 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -42,6 +44,7 @@ import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
 import { Lead } from '../types/Lead';
 import { CallLogService } from '../services/CallLogService';
+import { LeadsService } from '../services/LeadsService';
 import { api } from '../services/api';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { TimelineList } from '../components/TimelineList';
@@ -85,20 +88,72 @@ export const LeadDetailsScreen = () => {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [expandedLogIndex, setExpandedLogIndex] = useState<number | null>(null);
 
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: '', phone: '', alt_phone: '', email: '' });
+  const [isUpdatingLead, setIsUpdatingLead] = useState(false);
+
+  const openEditModal = () => {
+    setEditFormData({
+      name: `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || '',
+      phone: lead.phone || '',
+      alt_phone: lead.alt_phone || '',
+      email: lead.email || '',
+    });
+    setIsEditModalVisible(true);
+  };
+
+  const handleUpdateLead = async () => {
+    setIsUpdatingLead(true);
+    try {
+      const id = lead._id || lead.id || params.leadId;
+      if (!id) throw new Error("Missing Lead ID");
+      await LeadsService.updateLeadDetails(id, editFormData);
+      Alert.alert('Success', 'Lead details updated successfully');
+      setIsEditModalVisible(false);
+      fetchLead(false);
+    } catch(e) {
+      Alert.alert('Error', 'Failed to update lead details');
+    } finally {
+      setIsUpdatingLead(false);
+    }
+  };
+
   const fetchLead = useCallback(async (showSkeleton = true) => {
     const id = (lead?._id || lead?.id || params.leadId || '');
     if (!id) return;
     if (showSkeleton) setLeadLoading(true);
     try {
       const fresh = await api.getLeadById(id);
-      // console.log("Fresh lead", fresh);
       if (fresh) setLead(fresh);
-    } catch (e) {
+    } catch (e: any) {
+      // 403 = this lead is assigned to another agent
+      if (e?.response?.status === 403) {
+        const data = e.response.data;
+        // Backend may return the agent in different shapes
+        const agentName =
+          data?.assignedTo?.name ||
+          data?.assignedTo?.username ||
+          data?.assigned_to?.name ||
+          data?.assigned_to?.username ||
+          data?.agentName ||
+          data?.message?.match(/assigned to (.+)/i)?.[1] ||
+          'another agent';
+        setLeadLoading(false);
+        navigation.goBack();
+        setTimeout(() => {
+          Alert.alert(
+            '🔒 Lead Not Accessible',
+            `This lead is already assigned to ${agentName}. You can only view leads assigned to you.`,
+            [{ text: 'OK' }]
+          );
+        }, 300);
+        return;
+      }
       console.error('[LeadDetails] Failed to fetch lead:', e);
     } finally {
       setLeadLoading(false);
     }
-  }, [lead?._id, lead?.id, params.leadId]);
+  }, [lead?._id, lead?.id, params.leadId, navigation]);
 
   useEffect(() => {
     fetchLead();
@@ -240,17 +295,22 @@ export const LeadDetailsScreen = () => {
                             <User size={18} color={colors.primary} />
                             <Text style={styles.sectionTitle}>Basic Information</Text>
                           </View>
-                          <TouchableOpacity onPress={() => setBasicDetailsOpen(!basicDetailsOpen)}>
-                            {basicDetailsOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity onPress={openEditModal}>
+                              <Edit3 size={18} color={colors.primary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setBasicDetailsOpen(!basicDetailsOpen)}>
+                              {basicDetailsOpen ? <ChevronUp size={20} color={colors.textMuted} /> : <ChevronDown size={20} color={colors.textMuted} />}
+                            </TouchableOpacity>
+                          </View>
                         </View>
 
                         {basicDetailsOpen && (
                           <View style={styles.sectionBody}>
                             <DetailItem label="Full Name" value={`${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || '-'} icon={User} />
                             <DetailItem label="Phone" value={lead.phone || '-'} icon={Phone} isInteractive />
+                            <DetailItem label="Email" value={lead.email || '-'} icon={Mail} />
                             <DetailItem label="Alt Phone" value={lead.alt_phone || '-'} icon={Phone} />
-
                             <DetailItem label="Added On" value={lead.created ? new Date(lead.created).toLocaleDateString() : '-'} icon={Calendar} />
                           </View>
                         )}
@@ -274,7 +334,15 @@ export const LeadDetailsScreen = () => {
                                 <Text style={styles.statusText}>{lead.leadStatus || 'OPEN'}</Text>
                               </View>
                             </View>
-                            <DetailItem label="Assigned to" value={typeof lead.assigned_to === 'string' ? lead.assigned_to : lead.assigned_to?.name || '-'} icon={User} />
+                            <DetailItem
+                              label="Assigned to"
+                              value={
+                                typeof lead.assigned_to === 'object' && lead.assigned_to !== null
+                                  ? (lead.assigned_to as any).name || (lead.assigned_to as any).username || 'Unknown'
+                                  : (lead.assigned_to as any) || '-'
+                              }
+                              icon={User}
+                            />
                             <DetailItem label="Campaign" value={lead.campaign?.name || '-'} icon={Megaphone} />
                             <DetailItem label="Lead Source" value={lead.leadSource || 'Manual'} icon={Globe} />
                             <DetailItem label="Lead Segment" value={lead.tag || '-'} icon={TagIcon} />
@@ -334,6 +402,84 @@ export const LeadDetailsScreen = () => {
           </View>
         )}
       </View>
+
+      <Modal visible={isEditModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Basic Information</Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editFormData.name}
+                onChangeText={(text) => setEditFormData({ ...editFormData, name: text })}
+                placeholder="Enter Name"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editFormData.phone}
+                onChangeText={(text) => setEditFormData({ ...editFormData, phone: text })}
+                placeholder="Enter Phone Number"
+                keyboardType="phone-pad"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Alt Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editFormData.alt_phone}
+                onChangeText={(text) => setEditFormData({ ...editFormData, alt_phone: text })}
+                placeholder="Enter Alternate Phone Number"
+                keyboardType="phone-pad"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Email</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editFormData.email}
+                onChangeText={(text) => setEditFormData({ ...editFormData, email: text })}
+                placeholder="Enter Email Address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalActionBtn, styles.modalCancelBtn]}
+                onPress={() => setIsEditModalVisible(false)}
+                disabled={isUpdatingLead}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalActionBtn, styles.modalSubmitBtn]}
+                onPress={handleUpdateLead}
+                disabled={isUpdatingLead}
+              >
+                {isUpdatingLead ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </ScreenWrapper>
   );
 };
@@ -540,5 +686,73 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 16,
     backgroundColor: colors.divider,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: theme.spacing.lg,
+    width: '100%',
+    ...theme.shadows.lg,
+  },
+  modalTitle: {
+    ...theme.typography.h3,
+    marginBottom: theme.spacing.lg,
+    color: colors.textPrimary,
+  },
+  modalInputGroup: {
+    marginBottom: theme.spacing.md,
+  },
+  modalInputLabel: {
+    ...theme.typography.caption,
+    color: colors.textMuted,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: theme.radii.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    ...theme.typography.body,
+    color: colors.textPrimary,
+    backgroundColor: colors.background,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: theme.spacing.md,
+  },
+  modalActionBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: theme.radii.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  modalSubmitBtn: {
+    backgroundColor: colors.primary,
+    minWidth: 100,
+  },
+  modalCancelBtnText: {
+    ...theme.typography.button,
+    color: colors.textPrimary,
+  },
+  modalSubmitBtnText: {
+    ...theme.typography.button,
+    color: colors.white,
   },
 });

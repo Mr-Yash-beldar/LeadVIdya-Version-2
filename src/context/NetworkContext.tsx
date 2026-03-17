@@ -1,5 +1,5 @@
 // src/context/NetworkContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -318,18 +318,18 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
     }, []);
 
-    const loadPendingCount = async () => {
+    const loadPendingCount = useCallback(async () => {
         const count = await OfflineQueue.getPendingCount();
         setPendingSyncCount(count);
-    };
+    }, []);
 
-    const addToSyncQueue = async (key: string, data: any) => {
+    const addToSyncQueue = useCallback(async (key: string, data: any) => {
         await OfflineQueue.addToQueue(key, data);
         const count = await OfflineQueue.updatePendingCount();
         setPendingSyncCount(count);
-    };
+    }, []);
 
-    const processSyncQueue = async () => {
+    const processSyncQueue = useCallback(async () => {
         if (isProcessingSync || !networkInfo.isConnected || networkInfo.quality === 'poor') return;
 
         setIsProcessingSync(true);
@@ -352,18 +352,18 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } finally {
             setIsProcessingSync(false);
         }
-    };
+    }, [isProcessingSync, networkInfo]);
 
-    const clearQueue = async () => {
+    const clearQueue = useCallback(async () => {
         await OfflineQueue.clearQueue();
         setPendingSyncCount(0);
-    };
+    }, []);
 
-    const checkNow = async () => {
+    const checkNow = useCallback(async () => {
         const info = await networkChecker.checkConnectivity();
         setNetworkInfo(info);
         return info;
-    };
+    }, [networkChecker]);
 
     const contextValue = React.useMemo(() => ({
         networkInfo,

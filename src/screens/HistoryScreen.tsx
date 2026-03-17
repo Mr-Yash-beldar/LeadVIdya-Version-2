@@ -19,7 +19,7 @@ import {
   AppState,
   NativeEventEmitter,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SearchBar } from '../components/SearchBar';
 import { FilterBar } from '../components/FilterBar';
@@ -61,6 +61,19 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CATEGORIES = ['all', 'incoming', 'outgoing', 'missed'];
 
+// Personal tab limits — keep API calls minimal
+const PERSONAL_MAX_LOGS = 50;   // total pool of personal logs shown (grows as user scrolls)
+const PERSONAL_INITIAL_BATCH = 10; // phone numbers enriched on first load (visible window)
+const ENRICH_SCROLL_BATCH = 5;   // additional numbers enriched per scroll trigger
+const SCROLL_DEBOUNCE_MS = 300;  // debounce delay for scroll-triggered enrichment
+
+/** Returns today's midnight timestamp (local) */
+const getTodayStart = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
 // -- Skeleton Component --
 const SkeletonCard = () => (
   <GlassCard style={styles.skeletonCard}>
@@ -81,6 +94,7 @@ const SkeletonCard = () => (
 
 const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const isFocused = useIsFocused();
   const { user } = useAuth();
   const { isOffline } = useNetwork();
   const isConnected = !isOffline;
@@ -89,6 +103,7 @@ const HistoryScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [rawLogs, setRawLogs] = useState<CallLog[]>([]);
   const [assignedLeads, setAssignedLeads] = useState<Lead[]>([]);
+  const [enrichedPersonalLogs, setEnrichedPersonalLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [simCount, setSimCount] = useState(1);
@@ -98,6 +113,13 @@ const HistoryScreen: React.FC = () => {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState('');
   const [notifCount, setNotifCount] = useState(0);
+
+  // Cache for checkPhone API results — keyed by cleaned phone number
+  const phoneCheckCache = useRef<Record<string, any>>({});
+  // Debounce timer ref for scroll-triggered enrichment
+  const enrichDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track currently visible item indices from FlatList
+  const visibleIndices = useRef<number[]>([]);
 
   // -- Services --
   const callLogService = CallLogService;
@@ -109,11 +131,13 @@ const HistoryScreen: React.FC = () => {
   }, [assignedLeads]);
   const { checkAndPostNewCalls } = useAutoPost(leadsRef);
 
-  useEffect(() => {
-    checkAndPostNewCalls();
-    const interval = setInterval(checkAndPostNewCalls, 15000);
-    return () => clearInterval(interval);
-  }, [checkAndPostNewCalls]);
+  useFocusEffect(
+    useCallback(() => {
+      checkAndPostNewCalls();
+      const interval = setInterval(checkAndPostNewCalls, 15000);
+      return () => clearInterval(interval);
+    }, [checkAndPostNewCalls])
+  );
 
   const { checkNow } = useNetwork();
 
@@ -135,6 +159,8 @@ const HistoryScreen: React.FC = () => {
     if (isRefresh) {
         setRefreshing(true);
         checkNow();
+        // Clear phone cache on pull-to-refresh
+        phoneCheckCache.current = {};
     }
     else setLoading(true);
 
@@ -173,6 +199,200 @@ const HistoryScreen: React.FC = () => {
     }
   }, []);
 
+  /**
+   * Converts a raw lead object (from checkPhone) into enriched log fields.
+   * Returns partial overrides to spread onto the log entry.
+   */
+  const buildEnrichedFields = useCallback((lead: any, log: any) => {
+    if (!lead || lead.error || lead.success === false) return {};
+
+    const leadId = lead._id || lead.id;
+    const leadName =
+      `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || null;
+
+    const assignedToField = lead.assigned_to || lead.assignedTo;
+    const assignedToId =
+      assignedToField && typeof assignedToField === 'object'
+        ? assignedToField._id || assignedToField.id
+        : assignedToField;
+    const assignedToNameStr =
+      assignedToField && typeof assignedToField === 'object'
+        ? (assignedToField as any).name || (assignedToField as any).username || null
+        : null;
+
+    const currentUserId = user?._id;
+
+    if (assignedToId && currentUserId && assignedToId === currentUserId) {
+      return { leadId, leadName, leadData: lead, isAssignedToOther: false, canAssignSelf: false };
+    } else if (assignedToId && currentUserId && assignedToId !== currentUserId) {
+      return { leadId, leadName, leadData: lead, isAssignedToOther: true, assignedToName: assignedToNameStr, canAssignSelf: false };
+    } else {
+      return { leadId, leadName, leadData: lead, isAssignedToOther: false, canAssignSelf: true };
+    }
+  }, [user?._id]);
+
+  /**
+   * Core batch fetch: fetches only phones not yet in cache, max 5 concurrent.
+   * Returns true if any new data was fetched.
+   */
+  const fetchPhoneBatch = useCallback(async (phones: string[]): Promise<boolean> => {
+    const toFetch = phones.filter(p => !(p in phoneCheckCache.current));
+    if (toFetch.length === 0) return false;
+
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+      const batch = toFetch.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async phone => {
+          try {
+            const lead = await api.checkPhone(phone);
+            phoneCheckCache.current[phone] = lead;
+          } catch {
+            phoneCheckCache.current[phone] = null;
+          }
+        })
+      );
+    }
+    return true;
+  }, []);
+
+  /**
+   * Re-applies the cache to the current raw personal logs and updates state.
+   * Called after every batch fetch to reflect new data without re-fetching.
+   */
+  const applyEnrichmentCache = useCallback((logs: any[]) => {
+    const annotated = logs.map(log => {
+      const cleanNum = log.phoneNumber?.replace(/[^\d]/g, '');
+      if (!cleanNum || cleanNum.length < 10) return { ...log };
+
+      let lead: any = phoneCheckCache.current[cleanNum] ?? null;
+      if (lead === undefined) {
+        // Suffix/country-code match
+        const matchKey = Object.keys(phoneCheckCache.current).find(
+          k => k.length >= 10 && (k === cleanNum || k.endsWith(cleanNum) || cleanNum.endsWith(k))
+        );
+        if (matchKey) lead = phoneCheckCache.current[matchKey];
+      }
+
+      // If not yet fetched at all, keep the raw log as-is
+      if (lead === undefined || lead === null) return { ...log };
+
+      const extra = buildEnrichedFields(lead, log);
+      return { ...log, ...extra };
+    });
+    setEnrichedPersonalLogs(annotated);
+  }, [buildEnrichedFields]);
+
+  /**
+   * Given the full personal log list, picks the PERSONAL_MAX_LOGS most relevant entries:
+   * today's calls first, then recent, capped at PERSONAL_MAX_LOGS.
+   */
+  const getPersonalSlice = useCallback((logs: CallLog[]): CallLog[] => {
+    const todayStart = getTodayStart();
+    const todayLogs = logs.filter(l => (l.timestamp || 0) >= todayStart);
+    if (todayLogs.length >= PERSONAL_INITIAL_BATCH) {
+      // We have enough today's calls — use them, capped at PERSONAL_MAX_LOGS
+      return todayLogs.slice(0, PERSONAL_MAX_LOGS);
+    }
+    // Not enough today — fill up with recent ones
+    return logs.slice(0, PERSONAL_MAX_LOGS);
+  }, []);
+
+  // Stable ref of the personal slice so the scroll handler always sees latest
+  const personalSliceRef = useRef<CallLog[]>([]);
+
+  /**
+   * Initial enrichment — only fetches the first PERSONAL_INITIAL_BATCH unique phones.
+   * The rest are enriched lazily as the user scrolls.
+   */
+  const enrichPersonalInitial = useCallback(async (logs: CallLog[], forceRefresh = false) => {
+    const token = await AsyncStorage.getItem('token');
+    if (!token || logs.length === 0) {
+      setEnrichedPersonalLogs(logs as any[]);
+      return;
+    }
+
+    if (forceRefresh) {
+      phoneCheckCache.current = {};
+    }
+
+    // Limit to PERSONAL_MAX_LOGS and prefer today's calls
+    const slice = getPersonalSlice(logs);
+    personalSliceRef.current = slice;
+
+    // Show unenriched slice immediately (no blocking)
+    setEnrichedPersonalLogs(slice as any[]);
+
+    // Collect unique phones from the initial visible window only
+    const initialPhones = Array.from(
+      new Set(
+        slice
+          .slice(0, PERSONAL_INITIAL_BATCH)
+          .map(l => l.phoneNumber?.replace(/[^\d]/g, ''))
+          .filter((p): p is string => !!p && p.length >= 10)
+      )
+    );
+
+    const fetched = await fetchPhoneBatch(initialPhones);
+    if (fetched) {
+      applyEnrichmentCache(slice as any[]);
+    }
+  }, [getPersonalSlice, fetchPhoneBatch, applyEnrichmentCache]);
+
+  /**
+   * Scroll-triggered lazy enrichment.
+   * Enriches phones for the items currently visible + a small lookahead window.
+   * Debounced so rapid scrolling doesn't hammer the API.
+   */
+  const triggerScrollEnrichment = useCallback((indices: number[]) => {
+    if (enrichDebounceTimer.current) clearTimeout(enrichDebounceTimer.current);
+
+    enrichDebounceTimer.current = setTimeout(async () => {
+      const slice = personalSliceRef.current;
+      if (!slice || slice.length === 0) return;
+
+      // Build a window: visible items + ENRICH_SCROLL_BATCH lookahead
+      const maxVisible = Math.max(...indices, 0);
+      const windowEnd = Math.min(maxVisible + ENRICH_SCROLL_BATCH + 1, slice.length);
+      const windowSlice = slice.slice(0, windowEnd);
+
+      const windowPhones = Array.from(
+        new Set(
+          windowSlice
+            .map((l: any) => l.phoneNumber?.replace(/[^\d]/g, ''))
+            .filter((p): p is string => !!p && p.length >= 10 && !(p in phoneCheckCache.current))
+        )
+      );
+
+      if (windowPhones.length === 0) return;
+
+      const fetched = await fetchPhoneBatch(windowPhones);
+      if (fetched) {
+        applyEnrichmentCache(slice as any[]);
+      }
+    }, SCROLL_DEBOUNCE_MS);
+  }, [fetchPhoneBatch, applyEnrichmentCache]);
+
+  // Viewability config for the FlatList — fires when >=50% of item is visible
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 });
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (!viewableItems || viewableItems.length === 0) return;
+    const indices = viewableItems.map((v: any) => v.index as number).filter((i: number) => i != null);
+    visibleIndices.current = indices;
+    // Only trigger lazy enrichment when in personal tab
+    triggerScrollEnrichment(indices);
+  });
+
+  // Enrich personal logs whenever rawLogs changes — initial batch only
+  useEffect(() => {
+    if (rawLogs.length > 0) {
+      enrichPersonalInitial(rawLogs, false);
+    } else {
+      setEnrichedPersonalLogs([]);
+      personalSliceRef.current = [];
+    }
+  }, [rawLogs, enrichPersonalInitial]);
+
   useFocusEffect(
     useCallback(() => {
       loadLeadsForMatching();
@@ -183,41 +403,55 @@ const HistoryScreen: React.FC = () => {
 
   // Computed Call Logs (Matched & Filtered)
   const callLogs = useMemo(() => {
-    let processed = rawLogs;
+    // Choose source based on tab:
+    // - 'leads' tab → match locally against assignedLeads (fast, already fetched)
+    // - 'personal' tab → use enrichedPersonalLogs from API's checkandgive (accurate, full info)
+    let processed: any[];
 
-    // 1. Initial Mapping & Local Matching
-    processed = processed.map(log => {
-      const cleanNum = log.phoneNumber?.replace(/[^\d]/g, '');
-      if (!cleanNum || cleanNum.length < 10) return log;
+    if (activeTab === 'personal') {
+      // Personal tab: use API-enriched data
+      processed = enrichedPersonalLogs.length > 0 ? [...enrichedPersonalLogs] : [...rawLogs];
+    } else {
+      // Leads tab: match locally against assigned leads
+      processed = rawLogs.map(log => {
+        const cleanNum = log.phoneNumber?.replace(/[^\d]/g, '');
+        if (!cleanNum || cleanNum.length < 10) return log;
 
-      const matchedLead = assignedLeads.find(lead => {
-        const leadNum = (lead.phone || '').replace(/[^\d]/g, '');
-        const leadAltNum = (lead.alt_phone || '').replace(/[^\d]/g, '');
-        
-        // Exact match or suffix match (to handle country codes)
-        const isMatch = (leadNum.length >= 10 && (leadNum === cleanNum || leadNum.endsWith(cleanNum) || cleanNum.endsWith(leadNum))) ||
-                       (leadAltNum.length >= 10 && (leadAltNum === cleanNum || leadAltNum.endsWith(cleanNum) || cleanNum.endsWith(leadAltNum)));
-        return isMatch;
+        const matchedLead = assignedLeads.find(lead => {
+          const leadNum = (lead.phone || '').replace(/[^\d]/g, '');
+          const leadAltNum = (lead.alt_phone || '').replace(/[^\d]/g, '');
+          const isMatch =
+            (leadNum.length >= 10 &&
+              (leadNum === cleanNum || leadNum.endsWith(cleanNum) || cleanNum.endsWith(leadNum))) ||
+            (leadAltNum.length >= 10 &&
+              (leadAltNum === cleanNum || leadAltNum.endsWith(cleanNum) || cleanNum.endsWith(leadAltNum)));
+          return isMatch;
+        });
+
+        if (matchedLead) {
+          return {
+            ...log,
+            leadId: matchedLead._id || (matchedLead as any).id,
+            leadName:
+              `${matchedLead.firstName || ''} ${matchedLead.lastName || ''}`.trim() ||
+              (matchedLead as any).name,
+            leadData: matchedLead,
+            canAssignSelf: false,
+          };
+        }
+        return log;
       });
 
-      if (matchedLead) {
-        return {
-          ...log,
-          leadId: matchedLead._id || (matchedLead as any).id,
-          leadName: `${matchedLead.firstName || ''} ${matchedLead.lastName || ''}`.trim() || (matchedLead as any).name,
-          leadData: matchedLead,
-          canAssignSelf: false
-        };
-      }
-      return log;
-    });
+      // Leads tab: only show entries that matched a lead
+      processed = processed.filter(l => !!l.leadId);
+    }
 
-    // 2. Filter by SIM
+    // Filter by SIM
     if (selectedSim !== null) {
       processed = processed.filter(l => l.simSlot === selectedSim);
     }
 
-    // 3. Filter by Type
+    // Filter by Type
     if (selectedFilter !== 'all') {
       processed = processed.filter(log => {
         const t = log.type.toString().toUpperCase();
@@ -228,38 +462,36 @@ const HistoryScreen: React.FC = () => {
       });
     }
 
-    // 4. Filter by Search
+    // Filter by Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      processed = processed.filter(l => 
-        (l.name && l.name.toLowerCase().includes(q)) || 
+      processed = processed.filter(l =>
+        (l.name && l.name.toLowerCase().includes(q)) ||
         (l.phoneNumber && l.phoneNumber.toLowerCase().includes(q)) ||
-        ((l as any).leadName && (l as any).leadName.toLowerCase().includes(q))
+        (l.leadName && l.leadName.toLowerCase().includes(q))
       );
     }
 
-    // 5. Filter by Tab
-    if (activeTab === 'leads') {
-      processed = processed.filter(l => !!(l as any).leadId);
-    }
-
     return processed;
-  }, [rawLogs, assignedLeads, selectedSim, selectedFilter, searchQuery, activeTab]);
+  }, [rawLogs, enrichedPersonalLogs, assignedLeads, selectedSim, selectedFilter, searchQuery, activeTab]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
+      if (nextState === 'active' && isFocused) {
         fetchLogs();
       }
     });
     return () => subscription.remove();
-  }, [fetchLogs]);
+  }, [fetchLogs, isFocused]);
 
   const handleAssignSelf = useCallback(async (item: any) => {
     try {
       const response = await api.assignSelf(item.leadId, item.phoneNumber);
       if (response.success) {
         Alert.alert('Success', 'Lead assigned to you');
+        // Clear the phone cache entry so it re-fetches after assignment
+        const cleanNum = item.phoneNumber?.replace(/[^\d]/g, '');
+        if (cleanNum) delete phoneCheckCache.current[cleanNum];
         fetchLogs(true);
       }
     } catch (err) {
@@ -286,6 +518,9 @@ const HistoryScreen: React.FC = () => {
       });
       if (response.success) {
         setIsAddModalVisible(false);
+        // Clear the cache for this number so checkPhone re-fetches after creation
+        const cleanNum = selectedPhoneNumber?.replace(/[^\d]/g, '');
+        if (cleanNum) delete phoneCheckCache.current[cleanNum];
         fetchLogs(true);
         loadLeadsForMatching();
       }
@@ -406,6 +641,8 @@ const HistoryScreen: React.FC = () => {
         data={(loading ? skeletonData : callLogs) as any[]}
         keyExtractor={callLogKeyExtractor}
         renderItem={renderCallLogItem}
+        onViewableItemsChanged={onViewableItemsChanged.current}
+        viewabilityConfig={viewabilityConfig.current}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchLogs(true)} colors={[colors.primary]} />
         }

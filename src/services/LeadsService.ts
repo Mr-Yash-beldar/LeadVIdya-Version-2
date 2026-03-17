@@ -4,6 +4,8 @@ import apiClient from './apiClient';
 import { Lead } from '../types/Lead';
 
 const LEADS_CACHE_KEY = 'cached_assigned_leads';
+const LEADS_CACHE_TS_KEY = 'cached_assigned_leads_ts';
+const MIN_REFRESH_TTL_MS = 5 * 60 * 1000; // 5 minutes between background refreshes
 
 export const LeadsService = {
     getAssignedLeads: async (page: number = 1, limit: number = 100, forceRefresh = false): Promise<Lead[]> => {
@@ -13,8 +15,12 @@ export const LeadsService = {
                 const cached = await AsyncStorage.getItem(LEADS_CACHE_KEY);
                 if (cached) {
                     const parsed = JSON.parse(cached);
-                    // Background refresh
-                    LeadsService.refreshLeads().catch(() => {});
+                    // Background refresh ONLY if cache is older than MIN_REFRESH_TTL_MS
+                    const tsRaw = await AsyncStorage.getItem(LEADS_CACHE_TS_KEY);
+                    const lastTs = tsRaw ? parseInt(tsRaw, 10) : 0;
+                    if (Date.now() - lastTs > MIN_REFRESH_TTL_MS) {
+                        LeadsService.refreshLeads().catch(() => { });
+                    }
                     return parsed;
                 }
             }
@@ -51,11 +57,14 @@ export const LeadsService = {
             if (response.data.success) {
                 const data = response.data.data;
                 await AsyncStorage.setItem(LEADS_CACHE_KEY, JSON.stringify(data));
+                await AsyncStorage.setItem(LEADS_CACHE_TS_KEY, String(Date.now()));
                 return data;
             }
             return [];
-        } catch (error) {
-            console.error('Error refreshing leads cache:', error);
+        } catch (error: any) {
+            if (!error.message?.includes('Rate limited')) {
+                console.error('Error refreshing leads cache:', error);
+            }
             return [];
         }
     },
@@ -76,6 +85,16 @@ export const LeadsService = {
             return response.data;
         } catch (error) {
             console.error('Error updating lead by salesperson:', error);
+            throw error;
+        }
+    },
+
+    updateLeadDetails: async (leadId: string, data: { name: string; phone: string; alt_phone: string; email: string }) => {
+        try {
+            const response = await apiClient.put(`/leads/update-lead-by-salesperson/${leadId}`, data);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating lead details:', error);
             throw error;
         }
     },
