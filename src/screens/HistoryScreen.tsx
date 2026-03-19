@@ -62,9 +62,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CATEGORIES = ['all', 'incoming', 'outgoing', 'missed'];
 
 // Personal tab limits — keep API calls minimal
-const PERSONAL_MAX_LOGS = 50;   // total pool of personal logs shown (grows as user scrolls)
-const PERSONAL_INITIAL_BATCH = 10; // phone numbers enriched on first load (visible window)
-const ENRICH_SCROLL_BATCH = 5;   // additional numbers enriched per scroll trigger
+const PERSONAL_PAGE_SIZE = 5;
 const SCROLL_DEBOUNCE_MS = 300;  // debounce delay for scroll-triggered enrichment
 
 /** Returns today's midnight timestamp (local) */
@@ -113,6 +111,8 @@ const HistoryScreen: React.FC = () => {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState('');
   const [notifCount, setNotifCount] = useState(0);
+  const [personalPageSize, setPersonalPageSize] = useState(PERSONAL_PAGE_SIZE);
+  const [loadingMorePersonal, setLoadingMorePersonal] = useState(false);
 
   // Cache for checkPhone API results — keyed by cleaned phone number
   const phoneCheckCache = useRef<Record<string, any>>({});
@@ -161,6 +161,7 @@ const HistoryScreen: React.FC = () => {
       checkNow();
       // Clear phone cache on pull-to-refresh
       phoneCheckCache.current = {};
+      setPersonalPageSize(PERSONAL_PAGE_SIZE);
     }
     else setLoading(true);
 
@@ -287,25 +288,17 @@ const HistoryScreen: React.FC = () => {
    * Given the full personal log list, picks the PERSONAL_MAX_LOGS most relevant entries:
    * today's calls first, then recent, capped at PERSONAL_MAX_LOGS.
    */
-  const getPersonalSlice = useCallback((logs: CallLog[]): CallLog[] => {
-    const todayStart = getTodayStart();
-    const todayLogs = logs.filter(l => (l.timestamp || 0) >= todayStart);
-    if (todayLogs.length >= PERSONAL_INITIAL_BATCH) {
-      // We have enough today's calls — use them, capped at PERSONAL_MAX_LOGS
-      return todayLogs.slice(0, PERSONAL_MAX_LOGS);
-    }
-    // Not enough today — fill up with recent ones
-    return logs.slice(0, PERSONAL_MAX_LOGS);
+  const getPersonalSlice = useCallback((logs: CallLog[], size: number): CallLog[] => {
+    return logs.slice(0, size);
   }, []);
 
   // Stable ref of the personal slice so the scroll handler always sees latest
   const personalSliceRef = useRef<CallLog[]>([]);
 
   /**
-   * Initial enrichment — only fetches the first PERSONAL_INITIAL_BATCH unique phones.
-   * The rest are enriched lazily as the user scrolls.
+   * Initial & incrementally enriches logs 5 at a time
    */
-  const enrichPersonalInitial = useCallback(async (logs: CallLog[], forceRefresh = false) => {
+  const enrichPersonalInitial = useCallback(async (logs: CallLog[], forceRefresh = false, size = PERSONAL_PAGE_SIZE) => {
     const token = await AsyncStorage.getItem('token');
     if (!token || logs.length === 0) {
       setEnrichedPersonalLogs(logs as any[]);
@@ -316,81 +309,50 @@ const HistoryScreen: React.FC = () => {
       phoneCheckCache.current = {};
     }
 
-    // Limit to PERSONAL_MAX_LOGS and prefer today's calls
-    const slice = getPersonalSlice(logs);
+    const slice = getPersonalSlice(logs, size);
     personalSliceRef.current = slice;
 
     // Show unenriched slice immediately (no blocking)
     setEnrichedPersonalLogs(slice as any[]);
 
-    // Collect unique phones from the initial visible window only
+    // Collect unique phones from the visible window only
     const initialPhones = Array.from(
       new Set(
         slice
-          .slice(0, PERSONAL_INITIAL_BATCH)
           .map(l => l.phoneNumber?.replace(/[^\d]/g, ''))
           .filter((p): p is string => !!p && p.length >= 10)
       )
     );
 
     const fetched = await fetchPhoneBatch(initialPhones);
-    if (fetched) {
+    if (fetched || forceRefresh) {
       applyEnrichmentCache(slice as any[]);
     }
   }, [getPersonalSlice, fetchPhoneBatch, applyEnrichmentCache]);
 
-  /**
-   * Scroll-triggered lazy enrichment.
-   * Enriches phones for the items currently visible + a small lookahead window.
-   * Debounced so rapid scrolling doesn't hammer the API.
-   */
-  const triggerScrollEnrichment = useCallback((indices: number[]) => {
+  const handlePersonalLoadMore = useCallback(() => {
+    if (loading || loadingMorePersonal || enrichedPersonalLogs.length >= rawLogs.length || activeTab !== 'personal') return;
+
+    setLoadingMorePersonal(true);
     if (enrichDebounceTimer.current) clearTimeout(enrichDebounceTimer.current);
 
     enrichDebounceTimer.current = setTimeout(async () => {
-      const slice = personalSliceRef.current;
-      if (!slice || slice.length === 0) return;
-
-      // Build a window: visible items + ENRICH_SCROLL_BATCH lookahead
-      const maxVisible = Math.max(...indices, 0);
-      const windowEnd = Math.min(maxVisible + ENRICH_SCROLL_BATCH + 1, slice.length);
-      const windowSlice = slice.slice(0, windowEnd);
-
-      const windowPhones = Array.from(
-        new Set(
-          windowSlice
-            .map((l: any) => l.phoneNumber?.replace(/[^\d]/g, ''))
-            .filter((p): p is string => !!p && p.length >= 10 && !(p in phoneCheckCache.current))
-        )
-      );
-
-      if (windowPhones.length === 0) return;
-
-      const fetched = await fetchPhoneBatch(windowPhones);
-      if (fetched) {
-        applyEnrichmentCache(slice as any[]);
-      }
+      const newSize = personalPageSize + 5;
+      setPersonalPageSize(newSize);
+      await enrichPersonalInitial(rawLogs, false, newSize);
+      setLoadingMorePersonal(false);
     }, SCROLL_DEBOUNCE_MS);
-  }, [fetchPhoneBatch, applyEnrichmentCache]);
-
-  // Viewability config for the FlatList — fires when >=50% of item is visible
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 });
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (!viewableItems || viewableItems.length === 0) return;
-    const indices = viewableItems.map((v: any) => v.index as number).filter((i: number) => i != null);
-    visibleIndices.current = indices;
-    // Only trigger lazy enrichment when in personal tab
-    triggerScrollEnrichment(indices);
-  });
+  }, [loading, loadingMorePersonal, enrichedPersonalLogs.length, rawLogs, personalPageSize, enrichPersonalInitial, activeTab]);
 
   // Enrich personal logs whenever rawLogs changes — initial batch only
   useEffect(() => {
     if (rawLogs.length > 0) {
-      enrichPersonalInitial(rawLogs, false);
+      enrichPersonalInitial(rawLogs, false, personalPageSize);
     } else {
       setEnrichedPersonalLogs([]);
       personalSliceRef.current = [];
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawLogs, enrichPersonalInitial]);
 
   useFocusEffect(
@@ -572,6 +534,7 @@ const HistoryScreen: React.FC = () => {
       <View style={styles.topContainer}>
         {/* Header Content (Internal) */}
         <View style={styles.subHeader}>
+
           <View>
             <Text style={styles.metaText}>{callLogs.length} recent calls</Text>
           </View>
@@ -641,8 +604,19 @@ const HistoryScreen: React.FC = () => {
         data={(loading ? skeletonData : callLogs) as any[]}
         keyExtractor={callLogKeyExtractor}
         renderItem={renderCallLogItem}
-        onViewableItemsChanged={onViewableItemsChanged.current}
-        viewabilityConfig={viewabilityConfig.current}
+        onEndReached={activeTab === 'personal' ? handlePersonalLoadMore : undefined}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          activeTab === 'personal' && loadingMorePersonal ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : activeTab === 'personal' && enrichedPersonalLogs.length >= rawLogs.length && rawLogs.length > 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }}>You've reached the end!</Text>
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchLogs(true)} colors={[colors.primary]} />
         }
