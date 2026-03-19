@@ -35,16 +35,16 @@ import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../context/NetworkContext';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
-import { 
-  Plus, 
-  Phone, 
-  PhoneCall, 
-  Settings, 
-  Clock, 
-  Search, 
-  Filter, 
-  Layout, 
-  Users, 
+import {
+  Plus,
+  Phone,
+  PhoneCall,
+  Settings,
+  Clock,
+  Search,
+  Filter,
+  Layout,
+  Users,
   User,
   Zap,
   ChevronRight,
@@ -123,7 +123,7 @@ const HistoryScreen: React.FC = () => {
 
   // -- Services --
   const callLogService = CallLogService;
-  
+
   // -- Auto Post Hook --
   const leadsRef = useRef<Lead[]>(assignedLeads);
   useEffect(() => {
@@ -157,17 +157,17 @@ const HistoryScreen: React.FC = () => {
 
   const fetchLogs = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
-        setRefreshing(true);
-        checkNow();
-        // Clear phone cache on pull-to-refresh
-        phoneCheckCache.current = {};
+      setRefreshing(true);
+      checkNow();
+      // Clear phone cache on pull-to-refresh
+      phoneCheckCache.current = {};
     }
     else setLoading(true);
 
     try {
       const logs = await callLogService.getCallLogs(isRefresh);
       setRawLogs(logs);
-      
+
       const count = (await NativeModules.PhoneModule?.getSimCount?.()) || 1;
       setSimCount(count);
 
@@ -176,7 +176,7 @@ const HistoryScreen: React.FC = () => {
         if (PhoneModule?.getOngoingCall) {
           currentCall = await PhoneModule.getOngoingCall();
         }
-      } catch (e) {}
+      } catch (e) { }
       setOngoingCall(currentCall);
     } catch (error) {
       console.error('Fetch logs error:', error);
@@ -534,8 +534,8 @@ const HistoryScreen: React.FC = () => {
     loading ? (
       <SkeletonCard />
     ) : (
-      <CallLogItem 
-        item={item as CallLog} 
+      <CallLogItem
+        item={item as CallLog}
         simCount={simCount}
         isLeadLog={activeTab === 'leads'}
         onAssignSelf={handleAssignSelf}
@@ -544,9 +544,9 @@ const HistoryScreen: React.FC = () => {
     )
   ), [loading, simCount, activeTab, handleAssignSelf, handleAddLead]);
 
-  const callLogKeyExtractor = useCallback((item: any, index: number) => 
+  const callLogKeyExtractor = useCallback((item: any, index: number) =>
     loading ? `skeleton-${index}` : (item as CallLog).id || index.toString()
-  , [loading]);
+    , [loading]);
 
   const renderOngoingCall = () => {
     if (!ongoingCall) return null;
@@ -576,23 +576,23 @@ const HistoryScreen: React.FC = () => {
             <Text style={styles.metaText}>{callLogs.length} recent calls</Text>
           </View>
           <View style={styles.headerActions}>
-             {simCount > 1 && (
-               <View style={styles.simContainer}>
-                 {[...Array(simCount)].map((_, i) => (
-                   <TouchableOpacity
-                     key={i}
-                     style={[
-                       styles.simButton,
-                       selectedSim === i && styles.simButtonActive
-                     ]}
-                     onPress={() => setSelectedSim(selectedSim === i ? null : i)}
-                   >
-                     <Layers size={14} color={selectedSim === i ? colors.white : colors.textSecondary} />
-                     <Text style={[styles.simLabel, selectedSim === i && styles.simLabelActive]}>L{i + 1}</Text>
-                   </TouchableOpacity>
-                 ))}
-               </View>
-             )}
+            {simCount > 1 && (
+              <View style={styles.simContainer}>
+                {[...Array(simCount)].map((_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.simButton,
+                      selectedSim === i && styles.simButtonActive
+                    ]}
+                    onPress={() => setSelectedSim(selectedSim === i ? null : i)}
+                  >
+                    <Layers size={14} color={selectedSim === i ? colors.white : colors.textSecondary} />
+                    <Text style={[styles.simLabel, selectedSim === i && styles.simLabelActive]}>L{i + 1}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Bell with notification badge */}
             <TouchableOpacity
@@ -662,8 +662,8 @@ const HistoryScreen: React.FC = () => {
         <View style={styles.fabOverlay} />
       </TouchableOpacity>
 
-      <DialerModal 
-        isVisible={isDialerVisible} 
+      <DialerModal
+        isVisible={isDialerVisible}
         onClose={() => setIsDialerVisible(false)}
         onAddLead={handleAddLead}
       />
