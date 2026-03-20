@@ -31,7 +31,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
 import { api } from '../services/api';
-import { ReportService } from '../services/ReportService';
 import { ReportMetrics } from '../types/Report';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
@@ -40,25 +39,31 @@ import { useNetwork } from '../context/NetworkContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// -- Modern Skeleton Loading --
+// -- Premium Skeleton Loading --
 const SkeletonCard = () => {
-  const anim = useRef(new Animated.Value(0.3)).current;
+  const anim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
   }, [anim]);
 
+  const opacity = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.6]
+  });
+
   return (
-    <Animated.View style={[styles.card, { opacity: anim }]}>
+    <View style={styles.card}>
       <GlassCard style={styles.skeletonInner}>
-        <View style={styles.skeletonValue} />
-        <View style={styles.skeletonLabel} />
+        <Animated.View style={[styles.skeletonValue, { opacity }]} />
+        <Animated.View style={[styles.skeletonLabel, { opacity, width: '70%' }]} />
       </GlassCard>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -147,7 +152,8 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
       const { start, end } = getDateRange();
       const response = await api.getCallReports(start, end);
       if (response.success) {
-        setMetrics(ReportService.calculateMetrics(response.data, response.uniqueCallsCount));
+        // Use metrics directly from API response as requested
+        setMetrics(response.metrics || response.data?.metrics || null);
       } else {
         Alert.alert('Report Error', response.message || 'Could not fetch report data.');
       }
@@ -203,6 +209,8 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
             <View style={styles.reportsContainer}>
               <SkeletonSection title="Performance" rows={4} />
               <SkeletonSection title="Traffic" rows={4} />
+              <SkeletonSection title="Engagement" rows={4} />
+              <SkeletonSection title="Dispositions" rows={4} />
             </View>
           ) : metrics ? (
             <View style={styles.reportsContainer}>
@@ -235,10 +243,12 @@ export const CallAnalyticsScreen: React.FC<{ navigation: any }> = ({ navigation 
               </View>
               <View style={styles.grid}>
                 <MetricCard label="Total Outgoing" value={metrics.outgoingCalls.totalOutgoing} icon={PhoneOutgoing} color={colors.accent} />
-                <MetricCard label="Connected" value={metrics.outgoingCalls.outgoingConnected} icon={Zap} color={colors.success} />
+                <MetricCard label="Outbound Connected" value={metrics.outgoingCalls.outgoingConnected} icon={Zap} color={colors.success} />
                 <MetricCard label="No Answer" value={metrics.outgoingCalls.outgoingUnanswered} icon={X} color={colors.error} />
                 <MetricCard label="Avg Duration" value={metrics.outgoingCalls.avgOutgoingDuration} icon={Clock} color={colors.textSecondary} />
               </View>
+
+
             </View>
           ) : (
             <View style={styles.emptyContainer}>

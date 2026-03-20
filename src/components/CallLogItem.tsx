@@ -60,6 +60,8 @@ interface CallLogItemProps {
     _enrichedLeadId?: string;
     _enrichedLeadData?: any;
     simSlot?: number;
+    ownerName?: string;
+    isMyCall?: boolean;
   };
   simCount?: number;
   isLeadLog?: boolean;
@@ -79,12 +81,13 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
   }) => {
   const navigation = useNavigation<any>();
 
-  const isMyLead = useMemo(() =>
-    !!(item.leadId || (item.leadData && !item.canAssignSelf)),
-    [item.leadId, item.leadData, item.canAssignSelf]
-  );
+  const isMyLead = useMemo(() => {
+    if (item.canAssignSelf || item.isAssignedToOther) return false;
+    return !!(item.leadId || item.leadData);
+  }, [item.leadId, item.leadData, item.canAssignSelf, item.isAssignedToOther]);
 
   const assignedToName = useMemo(() => {
+    // console.log(item);
     if (item.assignedToName) return item.assignedToName;
     const lead = item._enrichedLeadData || item.leadData;
     if (!lead) return null;
@@ -254,22 +257,25 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
             {isMyLead ? (
               <View style={styles.tag}>
                 <View style={[styles.tagDot, { backgroundColor: colors.success }]} />
-                <Text style={styles.tagText}>My Lead</Text>
+                <Text style={styles.tagText}> {item.ownerName || 'Unassigned'}</Text>
               </View>
             ) : item.isAssignedToOther ? (
               <View style={styles.tag}>
                 <View style={[styles.tagDot, { backgroundColor: colors.textMuted }]} />
-                <Text style={styles.tagText}>Assigned: {assignedToName || 'Other'}</Text>
+                <Text style={styles.tagText}>Assigned: {assignedToName || 'Other'}{item.ownerName ? ` • ${item.ownerName}` : ''}</Text>
               </View>
             ) : item.canAssignSelf ? (
-              <View style={[styles.tag, { backgroundColor: 'rgba(255,193,7,0.1)' }]}>
+              <TouchableOpacity
+                style={[styles.tag, { backgroundColor: 'rgba(255,193,7,0.1)' }]}
+                onPress={() => onAssignSelf && onAssignSelf(item)}
+              >
                 <View style={[styles.tagDot, { backgroundColor: colors.warning }]} />
-                <Text style={[styles.tagText, { color: colors.warning }]}>Claimable</Text>
-              </View>
+                <Text style={[styles.tagText, { color: colors.warning, fontWeight: '800' }]}>UNASSIGNED • ASSIGN NOW</Text>
+              </TouchableOpacity>
             ) : (
               <View style={styles.tag}>
                 <View style={[styles.tagDot, { backgroundColor: colors.primary }]} />
-                <Text style={styles.tagText}>New Contact</Text>
+                <Text style={styles.tagText}>{item.ownerName ? `Call by: ${item.ownerName}` : 'New Contact'}</Text>
               </View>
             )}
           </View>
@@ -318,6 +324,8 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
     prevProps.item.canAssignSelf === nextProps.item.canAssignSelf &&
     prevProps.item.isAssignedToOther === nextProps.item.isAssignedToOther &&
     prevProps.item.assignedToName === nextProps.item.assignedToName &&
+    prevProps.item.ownerName === nextProps.item.ownerName &&
+    prevProps.item.isMyCall === nextProps.item.isMyCall &&
     prevProps.item.leadId === nextProps.item.leadId &&
     prevProps.simCount === nextProps.simCount &&
     prevProps.isLeadLog === nextProps.isLeadLog

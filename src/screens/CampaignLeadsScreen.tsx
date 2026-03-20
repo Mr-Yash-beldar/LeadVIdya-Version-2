@@ -61,7 +61,7 @@ const LEAD_STATUSES = [
 
 // -- Integrated Lead Card for Campaign View --
 const CampaignLeadCard = React.memo(({ item, onPress }: { item: Lead; onPress: (lead: Lead) => void }) => {
-    console.log(item);
+
     const name = item.name || item.firstName || 'Unknown';
     const phone = item.number || item.phone || 'N/A';
     const stage = item.stage || 'N/A';
@@ -177,7 +177,7 @@ export const CampaignLeadsScreen = () => {
 
                 {/* Status Filter Dropdown */}
                 <View style={styles.filterSection}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.dropdownTrigger}
                         onPress={() => setShowStatusModal(true)}
                         activeOpacity={0.7}
@@ -200,7 +200,7 @@ export const CampaignLeadsScreen = () => {
                     animationType="fade"
                     onRequestClose={() => setShowStatusModal(false)}
                 >
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.modalOverlay}
                         activeOpacity={1}
                         onPress={() => setShowStatusModal(false)}

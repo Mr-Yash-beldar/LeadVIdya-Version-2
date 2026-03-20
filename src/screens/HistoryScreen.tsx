@@ -31,6 +31,7 @@ import apiClient from '../services/apiClient';
 import { useAutoPost } from '../hooks/useAutoPost';
 import { api } from '../services/api';
 import { AddLeadModal } from '../components/AddLeadModal';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../context/NetworkContext';
 import { colors } from '../theme/colors';
@@ -50,6 +51,7 @@ import {
   ChevronRight,
   Layers,
   Bell,
+  Calendar,
 } from 'lucide-react-native';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
@@ -114,6 +116,19 @@ const HistoryScreen: React.FC = () => {
   const [personalPageSize, setPersonalPageSize] = useState(PERSONAL_PAGE_SIZE);
   const [loadingMorePersonal, setLoadingMorePersonal] = useState(false);
 
+  // Pagination & Date Filters for Remote Logs (Leads Tab)
+  const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
+  const [remotePage, setRemotePage] = useState(1);
+  const [remoteHasMore, setRemoteHasMore] = useState(true);
+  const [remoteLoadingMore, setRemoteLoadingMore] = useState(false);
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
+  const [dateFilterType, setDateFilterType] = useState<'today' | 'custom'>('today');
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
   // Cache for checkPhone API results — keyed by cleaned phone number
   const phoneCheckCache = useRef<Record<string, any>>({});
   // Debounce timer ref for scroll-triggered enrichment
@@ -155,7 +170,99 @@ const HistoryScreen: React.FC = () => {
     }
   }, []);
 
+  // Caching and Fetch Tracking
+  const remoteLogsCache = useRef<Record<string, any[]>>({});
+  const lastParams = useRef<string>('');
+  const isFetchingRemote = useRef(false);
+
+  const fetchRemoteLogs = useCallback(async (pageNum = 1, isRefresh = false) => {
+    const paramsStr = JSON.stringify({ startDate, endDate, pageNum });
+
+    // Prevent double calls for same params unless refreshing
+    if (!isRefresh && paramsStr === lastParams.current && isFetchingRemote.current) return;
+    if (!isRefresh && pageNum === 1 && remoteLogsCache.current[paramsStr]) {
+      setRemoteLogs(remoteLogsCache.current[paramsStr]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      isFetchingRemote.current = true;
+      lastParams.current = paramsStr;
+
+      if (pageNum === 1 && !isRefresh) setLoading(true);
+      if (pageNum > 1) setRemoteLoadingMore(true);
+
+      const params = {
+        start: `${startDate}T00:00:00.000Z`,
+        end: `${endDate}T23:59:59.999Z`,
+        page: pageNum,
+        limit: 5
+      };
+
+      const response = await api.getSalespersonCallLogs(params);
+      const rawLogs = response?.data || response || [];
+
+      // Map new flat data structure to UI components
+      const mappedLogs = rawLogs.map((log: any) => {
+        const isMyCall = log.leadAssignedPersonName === user?.name;
+
+        return {
+          ...log,
+          // Primary identifiers (Composite ID to avoid duplicate keys for same lead)
+          id: log._id || `${log.leadId}-${log.callTime}`,
+          phoneNumber: log.leadPhone || log.phoneNumber,
+          leadName: log.leadName || 'Unknown Lead',
+          leadMobile: log.leadPhone || log.leadMobile,
+          
+          // Ownership identification
+          isMyCall,
+          ownerName: isMyCall ? 'Me' : (log.leadAssignedPersonName || null),
+          canAssignSelf: !!(log.leadId && !log.leadAssignedPersonName),
+          isAssignedToOther: !!(log.leadAssignedPersonName && !isMyCall),
+          assignedToName: log.leadAssignedPersonName,
+          
+          // Call details
+          dateTime: log.callTime ? new Date(log.callTime).getTime() : Date.now(),
+          duration: log.callDuration ?? log.durationSeconds ?? 0,
+          type: (log.callType || 'UNKNOWN').toUpperCase(),
+
+          // Minimal lead data object for downstream compatibility
+          _leadData: {
+            _id: log.leadId,
+            firstName: log.leadName,
+            phone: log.leadPhone
+          }
+        };
+      });
+
+      if (pageNum === 1) {
+        remoteLogsCache.current[paramsStr] = mappedLogs;
+        setRemoteLogs(mappedLogs);
+      } else {
+        setRemoteLogs(prev => [...prev, ...mappedLogs]);
+      }
+
+      setRemoteHasMore(mappedLogs.length === 5);
+      setRemotePage(pageNum);
+    } catch (error) {
+      console.error('Fetch remote logs error:', error);
+      if (pageNum === 1) setRemoteLogs([]);
+    } finally {
+      isFetchingRemote.current = false;
+      setLoading(false);
+      setRemoteLoadingMore(false);
+      setRefreshing(false);
+    }
+  }, [startDate, endDate, user?.name]);
+
   const fetchLogs = useCallback(async (isRefresh = false) => {
+    if (activeTab === 'leads') {
+      if (isRefresh) setRefreshing(true);
+      fetchRemoteLogs(1, isRefresh);
+      return;
+    }
+
     if (isRefresh) {
       setRefreshing(true);
       checkNow();
@@ -185,7 +292,7 @@ const HistoryScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [callLogService, checkNow]);
+  }, [callLogService, checkNow, activeTab, fetchRemoteLogs]);
 
   const loadLeadsForMatching = useCallback(async () => {
     // Check if we have a user/session before fetching from backend
@@ -363,50 +470,24 @@ const HistoryScreen: React.FC = () => {
     }, [fetchLogs, loadLeadsForMatching, fetchNotifCount])
   );
 
+  const handleRemoteLoadMore = useCallback(() => {
+    if (!loading && !remoteLoadingMore && remoteHasMore && activeTab === 'leads') {
+      fetchRemoteLogs(remotePage + 1);
+    }
+  }, [loading, remoteLoadingMore, remoteHasMore, remotePage, fetchRemoteLogs, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'leads') {
+      fetchRemoteLogs(1, true);
+    }
+  }, [startDate, endDate, activeTab, fetchRemoteLogs]);
+
   // Computed Call Logs (Matched & Filtered)
   const callLogs = useMemo(() => {
     // Choose source based on tab:
     // - 'leads' tab → match locally against assignedLeads (fast, already fetched)
     // - 'personal' tab → use enrichedPersonalLogs from API's checkandgive (accurate, full info)
-    let processed: any[];
-
-    if (activeTab === 'personal') {
-      // Personal tab: use API-enriched data
-      processed = enrichedPersonalLogs.length > 0 ? [...enrichedPersonalLogs] : [...rawLogs];
-    } else {
-      // Leads tab: match locally against assigned leads
-      processed = rawLogs.map(log => {
-        const cleanNum = log.phoneNumber?.replace(/[^\d]/g, '');
-        if (!cleanNum || cleanNum.length < 10) return log;
-
-        const matchedLead = assignedLeads.find(lead => {
-          const leadNum = (lead.phone || '').replace(/[^\d]/g, '');
-          const leadAltNum = (lead.alt_phone || '').replace(/[^\d]/g, '');
-          const isMatch =
-            (leadNum.length >= 10 &&
-              (leadNum === cleanNum || leadNum.endsWith(cleanNum) || cleanNum.endsWith(leadNum))) ||
-            (leadAltNum.length >= 10 &&
-              (leadAltNum === cleanNum || leadAltNum.endsWith(cleanNum) || cleanNum.endsWith(leadAltNum)));
-          return isMatch;
-        });
-
-        if (matchedLead) {
-          return {
-            ...log,
-            leadId: matchedLead._id || (matchedLead as any).id,
-            leadName:
-              `${matchedLead.firstName || ''} ${matchedLead.lastName || ''}`.trim() ||
-              (matchedLead as any).name,
-            leadData: matchedLead,
-            canAssignSelf: false,
-          };
-        }
-        return log;
-      });
-
-      // Leads tab: only show entries that matched a lead
-      processed = processed.filter(l => !!l.leadId);
-    }
+    let processed = activeTab === 'leads' ? remoteLogs : enrichedPersonalLogs;
 
     // Filter by SIM
     if (selectedSim !== null) {
@@ -416,7 +497,7 @@ const HistoryScreen: React.FC = () => {
     // Filter by Type
     if (selectedFilter !== 'all') {
       processed = processed.filter(log => {
-        const t = log.type.toString().toUpperCase();
+        const t = (log.type || log.callType || '').toString().toUpperCase();
         if (selectedFilter === 'incoming') return t === 'INCOMING';
         if (selectedFilter === 'outgoing') return t === 'OUTGOING';
         if (selectedFilter === 'missed') return t === 'MISSED' || t === 'REJECTED';
@@ -430,12 +511,13 @@ const HistoryScreen: React.FC = () => {
       processed = processed.filter(l =>
         (l.name && l.name.toLowerCase().includes(q)) ||
         (l.phoneNumber && l.phoneNumber.toLowerCase().includes(q)) ||
-        (l.leadName && l.leadName.toLowerCase().includes(q))
+        (l.leadName && l.leadName.toLowerCase().includes(q)) ||
+        (l.leadMobile && l.leadMobile.toLowerCase().includes(q))
       );
     }
 
     return processed;
-  }, [rawLogs, enrichedPersonalLogs, assignedLeads, selectedSim, selectedFilter, searchQuery, activeTab]);
+  }, [remoteLogs, enrichedPersonalLogs, selectedSim, selectedFilter, searchQuery, activeTab]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -507,7 +589,7 @@ const HistoryScreen: React.FC = () => {
   ), [loading, simCount, activeTab, handleAssignSelf, handleAddLead]);
 
   const callLogKeyExtractor = useCallback((item: any, index: number) =>
-    loading ? `skeleton-${index}` : (item as CallLog).id || index.toString()
+    loading ? `skeleton-${index}` : item._id || item.id || index.toString()
     , [loading]);
 
   const renderOngoingCall = () => {
@@ -598,20 +680,80 @@ const HistoryScreen: React.FC = () => {
 
         <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
         <FilterBar selectedFilter={selectedFilter} onSelectFilter={setSelectedFilter} />
+
+        {activeTab === 'leads' && (
+          <View style={styles.dateFilterContainer}>
+            <View style={styles.dateToggle}>
+              {(['today', 'custom'] as const).map(type => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.dateTypeBtn, dateFilterType === type && styles.dateTypeBtnActive]}
+                  onPress={() => {
+                    setDateFilterType(type);
+                    if (type === 'today') {
+                      setStartDate(todayStr);
+                      setEndDate(todayStr);
+                    }
+                  }}
+                >
+                  <Text style={[styles.dateTypeText, dateFilterType === type && styles.dateTypeTextActive]}>
+                    {type === 'today' ? 'Today' : 'Custom'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {dateFilterType === 'custom' && (
+              <View style={styles.customDateRow}>
+                <TouchableOpacity onPress={() => setShowStartPicker(true)} style={styles.datePickerBtn}>
+                  <Calendar size={14} color={colors.primary} />
+                  <Text style={styles.datePickerText}>{startDate}</Text>
+                </TouchableOpacity>
+                <Text style={styles.dateTo}>to</Text>
+                <TouchableOpacity onPress={() => setShowEndPicker(true)} style={styles.datePickerBtn}>
+                  <Calendar size={14} color={colors.primary} />
+                  <Text style={styles.datePickerText}>{endDate}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {showStartPicker && (
+              <DateTimePicker
+                value={new Date(startDate)}
+                mode="date"
+                onChange={(e, d) => {
+                  setShowStartPicker(false);
+                  if (d) setStartDate(d.toISOString().split('T')[0]);
+                }}
+              />
+            )}
+            {showEndPicker && (
+              <DateTimePicker
+                value={new Date(endDate)}
+                mode="date"
+                onChange={(e, d) => {
+                  setShowEndPicker(false);
+                  if (d) setEndDate(d.toISOString().split('T')[0]);
+                }}
+              />
+            )}
+          </View>
+        )}
       </View>
 
       <FlatList
         data={(loading ? skeletonData : callLogs) as any[]}
         keyExtractor={callLogKeyExtractor}
         renderItem={renderCallLogItem}
-        onEndReached={activeTab === 'personal' ? handlePersonalLoadMore : undefined}
+        onEndReached={activeTab === 'personal' ? handlePersonalLoadMore : handleRemoteLoadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
-          activeTab === 'personal' && loadingMorePersonal ? (
+          (activeTab === 'personal' && loadingMorePersonal) || (activeTab === 'leads' && remoteLoadingMore) ? (
             <View style={{ padding: 20, alignItems: 'center' }}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ) : activeTab === 'personal' && enrichedPersonalLogs.length >= rawLogs.length && rawLogs.length > 0 ? (
+          ) : (activeTab === 'personal' && enrichedPersonalLogs.length >= rawLogs.length && rawLogs.length > 0) ||
+            (activeTab === 'leads' && !remoteHasMore && remoteLogs.length > 0) ? (
             <View style={{ padding: 20, alignItems: 'center' }}>
               <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }}>You've reached the end!</Text>
             </View>
@@ -888,6 +1030,60 @@ const styles = StyleSheet.create({
   fabOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  dateFilterContainer: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+    gap: 8,
+  },
+  dateToggle: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dateTypeBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  dateTypeBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dateTypeText: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  dateTypeTextActive: {
+    color: colors.black,
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  datePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.background,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  datePickerText: {
+    ...theme.typography.caption,
+    fontSize: 12,
+    color: colors.textPrimary,
+  },
+  dateTo: {
+    ...theme.typography.caption,
+    color: colors.textMuted,
   },
 });
 

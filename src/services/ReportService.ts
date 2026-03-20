@@ -54,7 +54,7 @@ export const ReportService = {
             },
         };
 
-        let totalDuration = 0;
+        let totalConnectedDuration = 0;
         let outgoingDuration = 0;
         let incomingDuration = 0;
 
@@ -66,11 +66,9 @@ export const ReportService = {
             // "connected" or "completed" both count as a connected call
             const isConnected = status === 'connected' || status === 'completed';
 
-            // Total call time = ALL calls' durations
-            totalDuration += duration;
-
             if (isConnected) {
                 metrics.callOverview.totalConnected++;
+                totalConnectedDuration += duration;
             } else {
                 metrics.callOverview.totalUnconnected++;
             }
@@ -99,11 +97,11 @@ export const ReportService = {
         });
 
         // Final calculations
-        metrics.callOverview.totalCallTime = ReportService.formatDuration(totalDuration);
+        metrics.callOverview.totalCallTime = ReportService.formatDuration(totalConnectedDuration);
 
         if (metrics.callOverview.totalConnected > 0) {
             metrics.callOverview.avgCallDuration = ReportService.formatDuration(
-                totalDuration / metrics.callOverview.totalConnected
+                totalConnectedDuration / metrics.callOverview.totalConnected
             );
         }
 

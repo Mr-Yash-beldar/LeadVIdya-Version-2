@@ -344,4 +344,14 @@ export const api = {
             return null;
         }
     },
+
+    getSalespersonCallLogs: async (params: { start?: string; end?: string; page?: number; limit?: number }) => {
+        try {
+            const response = await apiClient.get('/calls/sales/call-logs', { params });
+            return response.data;
+        } catch (error: any) {
+            console.error('Salesperson Call Logs Fetch Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
 };
