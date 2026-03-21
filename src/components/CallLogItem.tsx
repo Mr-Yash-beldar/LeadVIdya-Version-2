@@ -148,8 +148,8 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
   }, [displayNumber, item.simSlot]);
 
   const handleLeadPress = useCallback(() => {
-    // 1. ALWAYS check isAssignedToOther FIRST — prevents 403 from LeadDetails
-    if (item.isAssignedToOther) {
+    // 1. Check isAssignedToOther FIRST — but only if it's REALLY someone else
+    if (item.isAssignedToOther && !isMyLead) {
       Alert.alert(
         '🔒 Lead Not Accessible',
         `This lead is already assigned to ${assignedToName || 'another agent'}.\nYou can only view leads assigned to you.`,

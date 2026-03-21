@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import { X, CheckCircle } from 'lucide-react-native';
 import { colors } from '../theme/colors';
@@ -40,34 +41,62 @@ export const AddLeadModal = memo(({
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Simple local cache to avoid fetching every time the modal opens
+  // Simple local cache to avoid fetching every time the modal opens if no search
   const campaignsCache = useRef<Campaign[] | null>(null);
 
-  const fetchCampaigns = useCallback(async () => {
-    if (campaignsCache.current) {
+  const fetchCampaigns = useCallback(async (pageNumber = 1, search = searchQuery) => {
+    // If it's the first page and we have cache and no search, use cache first
+    if (pageNumber === 1 && !search && campaignsCache.current) {
       setCampaigns(campaignsCache.current);
+      setPage(1);
+      setHasMore(true);
       return;
     }
 
     try {
       setLoadingCampaigns(true);
-      const res = await api.getCampaigns();
+      const res = await api.getCampaigns({ page: pageNumber, limit: 10, search });
       if (res?.data) {
-        setCampaigns(res.data);
-        campaignsCache.current = res.data;
+        const newCampaigns = res.data;
+        if (pageNumber === 1) {
+          setCampaigns(newCampaigns);
+          if (!search) campaignsCache.current = newCampaigns;
+        } else {
+          setCampaigns(prev => [...prev, ...newCampaigns]);
+        }
+        
+        // If we got fewer than the limit, there's no more
+        setHasMore(newCampaigns.length === 10);
+        setPage(pageNumber);
       }
     } catch (error) {
       console.error('Error fetching campaigns', error);
     } finally {
       setLoadingCampaigns(false);
     }
-  }, []);
+  }, [searchQuery]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (visible) {
+        fetchCampaigns(1, searchQuery);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery, visible, fetchCampaigns]);
 
   const resetForm = useCallback(() => {
     setFirstName('');
     setLastName('');
     setSelectedCampaign('');
+    setSearchQuery('');
+    setPage(1);
+    setHasMore(true);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -110,79 +139,106 @@ export const AddLeadModal = memo(({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.phoneDisplayContainer}>
-            <Text style={styles.phoneLabel}>Phone Number:</Text>
-            <Text style={styles.phoneNumber}>{phoneNumber}</Text>
-          </View>
+          <FlatList
+            data={campaigns}
+            keyExtractor={(item) => item._id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            onEndReached={() => {
+              if (!loadingCampaigns && hasMore) {
+                fetchCampaigns(page + 1);
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            ListHeaderComponent={
+              <>
+                <View style={styles.phoneDisplayContainer}>
+                  <Text style={styles.phoneLabel}>Phone Number:</Text>
+                  <Text style={styles.phoneNumber}>{phoneNumber}</Text>
+                </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>First Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter first name"
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholderTextColor="#999"
-              />
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>First Name *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter first name"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholderTextColor="#999"
+                  />
 
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter last name"
-                value={lastName}
-                onChangeText={setLastName}
-                placeholderTextColor="#999"
-              />
-            </View>
+                  <Text style={styles.label}>Last Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter last name"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholderTextColor="#999"
+                  />
+                </View>
 
-            <Text style={styles.label}>Select Campaign *</Text>
-            {loadingCampaigns ? (
-              <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-            ) : (
-              <View style={styles.campaignList}>
-                {campaigns.map((c) => (
-                  <TouchableOpacity
-                    key={c._id}
-                    style={[styles.campaignChip, selectedCampaign === c._id && styles.campaignChipSelected]}
-                    onPress={() => setSelectedCampaign(c._id)}
+                <Text style={styles.label}>Select Campaign *</Text>
+                <View style={[styles.searchContainer, { borderTopLeftRadius: 12, borderTopRightRadius: 12, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#E0E0E0' }]}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search campaign..."
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </>
+            }
+            renderItem={({ item: c }) => (
+              <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#E0E0E0', backgroundColor: '#F9F9F9', paddingHorizontal: 8 }}>
+                <TouchableOpacity
+                  style={[styles.campaignItem, selectedCampaign === c._id && styles.campaignItemSelected]}
+                  onPress={() => setSelectedCampaign(c._id)}
+                >
+                  <Text
+                    style={[
+                      styles.campaignItemText,
+                      selectedCampaign === c._id && styles.campaignItemTextSelected,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.campaignChipText,
-                        selectedCampaign === c._id && styles.campaignChipTextSelected,
-                      ]}
-                    >
-                      {c.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                {campaigns.length === 0 && !loadingCampaigns && (
-                  <Text style={styles.emptyText}>No active campaigns found.</Text>
-                )}
+                    {c.name}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
+            ListFooterComponent={
+              <>
+                <View style={{ borderBottomWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#E0E0E0', borderBottomLeftRadius: 12, borderBottomRightRadius: 12, backgroundColor: '#F9F9F9', minHeight: 10 }}>
+                  {loadingCampaigns && (
+                    <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
+                  )}
+                  {!loadingCampaigns && campaigns.length === 0 && (
+                    <Text style={[styles.emptyText, { marginBottom: 10 }]}>No active campaigns found.</Text>
+                  )}
+                </View>
 
-            <View style={styles.formActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveButton, (loading || !firstName || !selectedCampaign) && styles.saveButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading || !firstName || !selectedCampaign}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.white} size="small" />
-                ) : (
-                  <>
-                    <CheckCircle size={18} color={colors.white} />
-                    <Text style={styles.saveButtonText}>Save Lead</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+                <View style={styles.formActions}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveButton, (loading || !firstName || !selectedCampaign) && styles.saveButtonDisabled]}
+                    onPress={handleSubmit}
+                    disabled={loading || !firstName || !selectedCampaign}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={colors.white} size="small" />
+                    ) : (
+                      <>
+                        <CheckCircle size={18} color={colors.white} />
+                        <Text style={styles.saveButtonText}>Save Lead</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            }
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -270,42 +326,64 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     marginBottom: 12,
   },
-  campaignList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 24,
-    gap: 10,
+  selectorContainer: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginBottom: 20,
+    overflow: 'hidden',
   },
-  campaignChip: {
-    paddingHorizontal: 14,
+  searchContainer: {
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#FFF',
+  },
+  searchInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
+    fontSize: 14,
+    color: '#000',
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  campaignChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  campaignListContainer: {
+    height: 200, // Fixed height for scrolling
   },
-  campaignChipText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
+  campaignFlatList: {
+    padding: 4,
   },
-  campaignChipTextSelected: {
-    color: colors.white,
+  campaignItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  campaignItemSelected: {
+    backgroundColor: colors.primary + '15',
+  },
+  campaignItemText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  campaignItemTextSelected: {
+    color: colors.primary,
     fontWeight: '700',
   },
   loader: {
-    marginVertical: 20,
+    marginVertical: 10,
     alignSelf: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     fontStyle: 'italic',
-    marginTop: 4,
+    textAlign: 'center',
+    marginTop: 20,
   },
   formActions: {
     flexDirection: 'row',

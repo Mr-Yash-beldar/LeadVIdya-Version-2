@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, NativeModules, TextInput, Keyboard, Alert, Modal, Dimensions, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, NativeModules, TextInput, Keyboard, Alert, Modal, Dimensions, ActivityIndicator, ScrollView, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { Phone, X, Delete, UserPlus, AlertCircle, CheckCircle, UserCheck } from 'lucide-react-native';
@@ -46,6 +46,12 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Cache for default campaigns
+  const campaignsCache = useRef<Campaign[] | null>(null);
 
   const inputRef = useRef<TextInput>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,11 +59,21 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
   useEffect(() => {
     if (isVisible) {
       setTimeout(() => inputRef.current?.focus(), 300);
-      fetchCampaigns();
+      fetchCampaigns(1, '');
     } else {
       resetState();
     }
   }, [isVisible]);
+
+  // Debounced search effect
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(() => {
+        fetchCampaigns(1, searchQuery);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, isVisible]);
 
   const resetState = () => {
     setNumber('');
@@ -66,14 +82,32 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
     setFirstName('');
     setLastName('');
     setSelectedCampaign('');
+    setSearchQuery('');
+    setPage(1);
+    setHasMore(true);
   };
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = async (pageNumber = 1, search = searchQuery) => {
+    if (pageNumber === 1 && !search && campaignsCache.current) {
+      setCampaigns(campaignsCache.current);
+      setPage(1);
+      setHasMore(true);
+      return;
+    }
+
     try {
       setLoadingCampaigns(true);
-      const res = await api.getCampaigns();
+      const res = await api.getCampaigns({ page: pageNumber, limit: 10, search });
       if (res && res.data) {
-        setCampaigns(res.data);
+        const newData = res.data;
+        if (pageNumber === 1) {
+          setCampaigns(newData);
+          if (!search) campaignsCache.current = newData;
+        } else {
+          setCampaigns(prev => [...prev, ...newData]);
+        }
+        setHasMore(newData.length === 10);
+        setPage(pageNumber);
       }
     } catch (error) {
       console.log('Error fetching campaigns', error);
@@ -287,23 +321,51 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
         </View>
 
         <Text style={styles.label}>Select Campaign:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.campaignList}>
-          {loadingCampaigns ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            campaigns.map(c => (
-              <TouchableOpacity
-                key={c._id}
-                style={[styles.campaignChip, selectedCampaign === c._id && styles.campaignChipSelected]}
-                onPress={() => setSelectedCampaign(c._id)}
-              >
-                <Text style={[styles.campaignChipText, selectedCampaign === c._id && styles.campaignChipTextSelected]}>
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </ScrollView>
+        <View style={styles.selectorContainer}>
+          <View style={styles.formSearchContainer}>
+            <TextInput
+              style={styles.formSearchInput}
+              placeholder="Search..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+          </View>
+          <View style={styles.campaignListContainer}>
+            <FlatList
+              data={campaigns}
+              keyExtractor={(item) => item._id}
+              nestedScrollEnabled={true}
+              onEndReached={() => {
+                if (!loadingCampaigns && hasMore) {
+                  fetchCampaigns(page + 1);
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              renderItem={({ item: c }) => (
+                <TouchableOpacity
+                  style={[styles.campaignItem, selectedCampaign === c._id && styles.campaignItemSelected]}
+                  onPress={() => setSelectedCampaign(c._id)}
+                >
+                  <Text style={[styles.campaignItemText, selectedCampaign === c._id && styles.campaignItemTextSelected]}>
+                    {c.name}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ListFooterComponent={
+                loadingCampaigns ? (
+                  <ActivityIndicator size="small" color={colors.primary} style={styles.formLoader} />
+                ) : null
+              }
+              ListEmptyComponent={
+                !loadingCampaigns && campaigns.length === 0 ? (
+                  <Text style={styles.formEmptyText}>No campaigns found</Text>
+                ) : null
+              }
+              style={styles.campaignFlatList}
+            />
+          </View>
+        </View>
 
         <View style={styles.formActions}>
           <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddForm(false)}>
@@ -589,30 +651,60 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 8
   },
-  campaignList: {
-    maxHeight: 50,
-    marginBottom: 24
-  },
-  campaignChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    marginRight: 8,
+  selectorContainer: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EEE'
+    borderColor: '#DDD',
+    marginBottom: 16,
+    overflow: 'hidden',
   },
-  campaignChipSelected: {
-    backgroundColor: '#FFF8E1', // Light yellow/primary
-    borderColor: colors.primary
+  formSearchContainer: {
+    padding: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#FFF',
   },
-  campaignChipText: {
-    color: '#666',
-    fontWeight: '500'
+  formSearchInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: '#000',
   },
-  campaignChipTextSelected: {
+  campaignListContainer: {
+    height: 120, // Smaller height for dialer modal
+  },
+  campaignFlatList: {
+    padding: 4,
+  },
+  campaignItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  campaignItemSelected: {
+    backgroundColor: colors.primary + '15',
+  },
+  campaignItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  campaignItemTextSelected: {
     color: colors.primary,
-    fontWeight: 'bold'
+    fontWeight: '700',
+  },
+  formLoader: {
+    marginVertical: 10,
+  },
+  formEmptyText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
   },
   formActions: {
     flexDirection: 'row',

@@ -4,9 +4,9 @@ import { Campaign, CampaignDetailResponse } from '../types/Campaign';
 import { Lead } from '../types/Lead';
 
 export const campaignService = {
-    getCampaigns: async (forceRefresh = false): Promise<Campaign[]> => {
+    getCampaigns: async (params: { page?: number; limit?: number; search?: string } = {}, forceRefresh = false): Promise<Campaign[]> => {
         try {
-            const res = await api.getCampaigns(forceRefresh);
+            const res = await api.getCampaigns(params, forceRefresh);
             const data = res.data;
             
             if (Array.isArray(data)) {

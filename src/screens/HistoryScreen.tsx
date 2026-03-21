@@ -203,9 +203,11 @@ const HistoryScreen: React.FC = () => {
       const response = await api.getSalespersonCallLogs(params);
       const rawLogs = response?.data || response || [];
 
-      // Map new flat data structure to UI components
       const mappedLogs = rawLogs.map((log: any) => {
-        const isMyCall = log.leadAssignedPersonName === user?.name;
+        // Robust check for current user ownership (case-insensitive)
+        const currentName = user?.name?.toLowerCase();
+        const callOwner = log.leadAssignedPersonName?.toLowerCase();
+        const isMyCall = !!(currentName && callOwner && currentName === callOwner);
 
         return {
           ...log,

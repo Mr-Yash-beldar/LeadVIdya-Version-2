@@ -90,37 +90,41 @@ export const api = {
         }
     },
 
-    getCampaigns: async (forceRefresh = false) => {
+    getCampaigns: async (params: { page?: number; limit?: number; search?: string } = {}, forceRefresh = false) => {
         try {
-            if (!forceRefresh) {
+            // Only use cache if no search/pagination params are provided
+            const isDefaultRequest = !params.page && !params.limit && !params.search;
+
+            if (!forceRefresh && isDefaultRequest) {
                 const cached = await AsyncStorage.getItem(CAMPAIGNS_CACHE_KEY);
                 if (cached) {
                     const parsed = JSON.parse(cached);
-                    api.getCampaigns(true).catch(() => { }); // Background refresh
+                    api.getCampaigns({}, true).catch(() => { }); // Background refresh
                     return { data: parsed, fromCache: true };
                 }
             }
 
-            const response = await apiClient.get('/campaigns');
+            const response = await apiClient.get('/campaigns', { params });
             const data = response.data?.data || response.data?.campaigns || response.data;
 
-            if (Array.isArray(data)) {
+            if (Array.isArray(data) && isDefaultRequest) {
                 await AsyncStorage.setItem(CAMPAIGNS_CACHE_KEY, JSON.stringify(data));
             }
-            // console.log("campaigns data", data);
-            return { data, fromCache: false };
+            return { data, fromCache: false, pagination: response.data?.pagination || null };
         } catch (error: any) {
             console.error('Get Campaigns Error:', error);
-            const cached = await AsyncStorage.getItem(CAMPAIGNS_CACHE_KEY);
-            if (cached) {
-                return { data: JSON.parse(cached), fromCache: true, error: true };
+            if (!params.search && !params.page) {
+                const cached = await AsyncStorage.getItem(CAMPAIGNS_CACHE_KEY);
+                if (cached) {
+                    return { data: JSON.parse(cached), fromCache: true, error: true };
+                }
             }
             throw error;
         }
     },
 
     refreshCampaigns: async () => {
-        const res = await api.getCampaigns(true);
+        const res = await api.getCampaigns({}, true);
         return res.data;
     },
 

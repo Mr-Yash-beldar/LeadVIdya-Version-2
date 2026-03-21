@@ -14,38 +14,60 @@ export const CampaignsScreen = () => {
     const navigation = useNavigation<any>();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
 
-    const fetchCampaigns = useCallback(async () => {
+    const fetchCampaigns = useCallback(async (pageNumber = 1, search = searchQuery, isRefresh = false) => {
         try {
-            const data = await campaignService.getCampaigns();
-            setCampaigns(data);
+            if (pageNumber === 1 && !isRefresh) setLoading(true);
+            if (pageNumber > 1) setLoadingMore(true);
+
+            const data = await campaignService.getCampaigns({ page: pageNumber, limit: 10, search });
+            
+            if (pageNumber === 1) {
+                setCampaigns(data);
+            } else {
+                setCampaigns(prev => [...prev, ...data]);
+            }
+            
+            setHasMore(data.length === 10);
+            setPage(pageNumber);
         } catch (error) {
             console.error('Failed to fetch campaigns', error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [searchQuery]);
 
+    // Debounced search effect
     useEffect(() => {
-        fetchCampaigns();
-    }, [fetchCampaigns]);
+        const timer = setTimeout(() => {
+            fetchCampaigns(1, searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const { checkNow } = useNetwork();
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         checkNow();
-        fetchCampaigns();
-    }, [fetchCampaigns, checkNow]);
+        fetchCampaigns(1, searchQuery, true);
+    }, [fetchCampaigns, checkNow, searchQuery]);
 
-    const filteredCampaigns = useMemo(() => {
-        if (!searchQuery) return campaigns;
-        const query = searchQuery.toLowerCase();
-        return campaigns.filter(c => c.name.toLowerCase().includes(query));
-    }, [searchQuery, campaigns]);
+    const handleLoadMore = useCallback(() => {
+        if (!loadingMore && hasMore) {
+            fetchCampaigns(page + 1);
+        }
+    }, [fetchCampaigns, loadingMore, hasMore, page]);
+
+    // Removed local filtering as we are doing server-side search
+    const filteredCampaigns = campaigns;
 
     const handleCampaignPress = useCallback((item: Campaign) => {
         navigation.navigate('CampaignLeads', { campaignId: item._id, title: item.name });
@@ -129,14 +151,25 @@ export const CampaignsScreen = () => {
                         keyExtractor={item => item._id}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        onEndReached={handleLoadMore}
+                        onEndReachedThreshold={0.5}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                         }
+                        ListFooterComponent={
+                            loadingMore ? (
+                                <View style={styles.footerLoader}>
+                                    <ActivityIndicator size="small" color={colors.primary} />
+                                </View>
+                            ) : null
+                        }
                         ListEmptyComponent={
-                            <View style={styles.emptyContainer}>
-                                <Activity size={48} color={colors.divider} />
-                                <Text style={styles.emptyText}>No campaigns found</Text>
-                            </View>
+                            !loading ? (
+                                <View style={styles.emptyContainer}>
+                                    <Activity size={48} color={colors.divider} />
+                                    <Text style={styles.emptyText}>No campaigns found</Text>
+                                </View>
+                            ) : null
                         }
                     />
                 )}
@@ -257,5 +290,9 @@ const styles = StyleSheet.create({
     emptyText: {
         ...theme.typography.body,
         color: colors.textSecondary,
+    },
+    footerLoader: {
+        paddingVertical: 20,
+        alignItems: 'center',
     },
 });
