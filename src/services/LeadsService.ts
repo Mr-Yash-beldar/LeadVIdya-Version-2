@@ -134,6 +134,16 @@ export const updateLeadDetails = async (leadId: string, data: { name: string; ph
     }
 };
 
+export const deleteLead = async (leadId: string) => {
+    try {
+        const response = await apiClient.delete(`/leads/${leadId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting lead:', error);
+        throw error;
+    }
+};
+
 export const postCallLog = async (data: {
     leadId: string;
     callTime: string;        // ISO string
@@ -198,4 +208,5 @@ export const LeadsService = {
     updateLeadDetails,
     postCallLog,
     logCall,
+    deleteLead,
 };

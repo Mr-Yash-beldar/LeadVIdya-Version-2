@@ -38,7 +38,8 @@ import {
   BarChart3,
   Clock,
   Star as StarIcon,
-  Megaphone
+  Megaphone,
+  Trash2
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
@@ -65,6 +66,7 @@ export const LeadDetailsScreen = () => {
     leadId?: string;
     callInfo?: any;
     fromCall?: boolean;
+    allowOtherDispose?: boolean;
   };
 
   const [lead, setLead] = useState<Lead>(params.lead ?? {} as Lead);
@@ -102,7 +104,32 @@ export const LeadDetailsScreen = () => {
     setIsEditModalVisible(true);
   };
 
-  const handleUpdateLead = async () => {
+  const handleDeleteLead = async () => {
+    Alert.alert(
+      'Delete Lead',
+      'Are you sure this lead is wrong number or not interest or invalid number?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+             try {
+                const id = lead._id || lead.id || params.leadId;
+                if (!id) throw new Error("Missing Lead ID");
+                await LeadsService.deleteLead(id);
+                Alert.alert('Success', 'Lead deleted successfully');
+                navigation.goBack();
+             } catch (e) {
+                Alert.alert('Error', 'Failed to delete lead');
+             }
+          }
+        }
+      ]
+    );
+  };
+ 
+   const handleUpdateLead = async () => {
     setIsUpdatingLead(true);
     try {
       const id = lead._id || lead.id || params.leadId;
@@ -139,6 +166,10 @@ export const LeadDetailsScreen = () => {
           data?.message?.match(/assigned to (.+)/i)?.[1] ||
           'another agent';
         setLeadLoading(false);
+        if (params.allowOtherDispose) {
+          // Stay on screen to allow disposition
+          return;
+        }
         navigation.goBack();
         setTimeout(() => {
           Alert.alert(
@@ -296,6 +327,9 @@ export const LeadDetailsScreen = () => {
                             <Text style={styles.sectionTitle}>Basic Information</Text>
                           </View>
                           <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity onPress={handleDeleteLead}>
+                              <Trash2 size={18} color={colors.error} />
+                            </TouchableOpacity>
                             <TouchableOpacity onPress={openEditModal}>
                               <Edit3 size={18} color={colors.primary} />
                             </TouchableOpacity>

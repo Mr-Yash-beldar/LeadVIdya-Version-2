@@ -83,7 +83,7 @@ export const TimelineList: React.FC<TimelineListProps> = ({
             <View style={styles.rightCol}>
                <TouchableOpacity 
                  activeOpacity={0.8} 
-                 onPress={() => evt.kind === 'CALL' ? setExpandedLogIndex(expandedLogIndex === i ? null : i) : null}
+                 onPress={() => (evt.kind === 'CALL' || evt.kind === 'NOTE') ? setExpandedLogIndex(expandedLogIndex === i ? null : i) : null}
                >
                  <GlassCard style={[styles.eventCard, expandedLogIndex === i && styles.eventCardExpanded]}>
                     <View style={styles.cardHeader}>
@@ -94,11 +94,11 @@ export const TimelineList: React.FC<TimelineListProps> = ({
                              <Text style={styles.timeText}>{evtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                           </View>
                        </View>
-                       {evt.kind === 'CALL' && (
+                       {(evt.kind === 'CALL' || (evt.kind === 'NOTE' && evt.desc?.length > 80)) && (
                           expandedLogIndex === i ? <ChevronUp size={16} color={colors.textMuted} /> : <ChevronDown size={16} color={colors.textMuted} />
                        )}
                     </View>
-
+ 
                     {evt.kind === 'CALL' && expandedLogIndex === i && (
                       <View style={styles.expandedContent}>
                          <View style={styles.detailRow}>
@@ -113,10 +113,15 @@ export const TimelineList: React.FC<TimelineListProps> = ({
                          )}
                       </View>
                     )}
-
+ 
                     {evt.kind === 'NOTE' && (
                        <View style={styles.noteContent}>
-                          <Text style={styles.noteText} numberOfLines={3}>{evt.desc}</Text>
+                          <Text style={styles.noteText} numberOfLines={expandedLogIndex === i ? undefined : 3}>{evt.desc}</Text>
+                          {evt.desc?.length > 80 && (
+                             <Text style={styles.readMoreText}>
+                                {expandedLogIndex === i ? 'Show Less' : 'Read More...'}
+                             </Text>
+                          )}
                           <View style={styles.noteFooter}>
                              <View style={styles.statusChip}>
                                 <Text style={styles.statusChipText}>{evt.leadStatus}</Text>
@@ -322,5 +327,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontStyle: 'italic',
     color: colors.textMuted,
+  },
+  readMoreText: {
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+    marginTop: 4,
+    fontSize: 11,
   },
 });

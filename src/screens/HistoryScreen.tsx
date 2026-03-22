@@ -204,9 +204,12 @@ const HistoryScreen: React.FC = () => {
       const rawLogs = response?.data || response || [];
 
       const mappedLogs = rawLogs.map((log: any) => {
-        // Robust check for current user ownership (case-insensitive)
-        const currentName = user?.name?.toLowerCase();
-        const callOwner = log.leadAssignedPersonName?.toLowerCase();
+        // Robust check for current user ownership (case-insensitive & trimmed)
+        const currentName = user?.name?.trim().toLowerCase();
+        const callOwner = log.leadAssignedPersonName?.trim().toLowerCase();
+        
+        // If we don't have user name yet, we can't definitively say it's not ours
+        // if the names match.
         const isMyCall = !!(currentName && callOwner && currentName === callOwner);
 
         return {
@@ -221,16 +224,19 @@ const HistoryScreen: React.FC = () => {
           isMyCall,
           ownerName: isMyCall ? 'Me' : (log.leadAssignedPersonName || null),
           canAssignSelf: !!(log.leadId && !log.leadAssignedPersonName),
-          isAssignedToOther: !!(log.leadAssignedPersonName && !isMyCall),
+          // Only mark as assigned to other if we are SURE it's not ours
+          isAssignedToOther: !!(log.leadAssignedPersonName && !isMyCall && currentName),
           assignedToName: log.leadAssignedPersonName,
           
           // Call details
-          dateTime: log.callTime ? new Date(log.callTime).getTime() : Date.now(),
+          timestamp: log.callTime ? new Date(log.callTime).getTime() : Date.now(),
+          dateTime: log.callTime ? new Date(log.callTime).getTime() : Date.now(), // Keep as fallback
           duration: log.callDuration ?? log.durationSeconds ?? 0,
           type: (log.callType || 'UNKNOWN').toUpperCase(),
 
           // Minimal lead data object for downstream compatibility
-          _leadData: {
+          leadId: log.leadId,
+          leadData: {
             _id: log.leadId,
             firstName: log.leadName,
             phone: log.leadPhone

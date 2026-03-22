@@ -82,9 +82,10 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
   const navigation = useNavigation<any>();
 
   const isMyLead = useMemo(() => {
+    if (item.isMyCall) return true;
     if (item.canAssignSelf || item.isAssignedToOther) return false;
     return !!(item.leadId || item.leadData);
-  }, [item.leadId, item.leadData, item.canAssignSelf, item.isAssignedToOther]);
+  }, [item.leadId, item.leadData, item.canAssignSelf, item.isAssignedToOther, item.isMyCall]);
 
   const assignedToName = useMemo(() => {
     // console.log(item);
@@ -149,11 +150,33 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
 
   const handleLeadPress = useCallback(() => {
     // 1. Check isAssignedToOther FIRST — but only if it's REALLY someone else
-    if (item.isAssignedToOther && !isMyLead) {
+    if (item.isAssignedToOther && !isMyLead && !item.isMyCall) {
       Alert.alert(
-        '🔒 Lead Not Accessible',
-        `This lead is already assigned to ${assignedToName || 'another agent'}.\nYou can only view leads assigned to you.`,
-        [{ text: 'OK' }]
+        'Lead Assigned',
+        `This lead is assigned to ${assignedToName || 'another agent'}. Still want to proceed with dispose option?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Dispose', 
+            onPress: () => {
+              const callInfo = {
+                id: item.id,
+                duration: item.duration,
+                timestamp: item.timestamp,
+                phoneNumber: item.phoneNumber || item.leadMobile,
+                callType: item.type,
+                recordingUrl: item.recordingUrl,
+              };
+              navigation.navigate('LeadDetails', { 
+                lead: item.leadData, 
+                fromCall: true, 
+                callInfo,
+                leadId: item.leadId,
+                allowOtherDispose: true 
+              });
+            } 
+          }
+        ]
       );
       return;
     }
