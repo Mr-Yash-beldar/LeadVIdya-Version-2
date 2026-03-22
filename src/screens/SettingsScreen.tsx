@@ -29,10 +29,21 @@ import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { GlassCard } from '../components/GlassCard';
+import { api } from '../services/api';
+import { CURRENT_APP_VERSION, compareVersions } from '../utils/appVersion';
 
 export const SettingsScreen = () => {
   const { logout, user } = useAuth();
   const navigation = useNavigation<any>();
+  const [updateInfo, setUpdateInfo] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    api.getAppVersion().then(setUpdateInfo);
+  }, []);
+
+  const hasUpdate = updateInfo && 
+                   updateInfo.latestVersion && 
+                   compareVersions(CURRENT_APP_VERSION, updateInfo.latestVersion) < 0;
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -128,9 +139,10 @@ export const SettingsScreen = () => {
           <GlassCard style={styles.sectionCard}>
             {renderSettingItem({
               icon: Download,
-              title: 'Check for Updates',
-              subtitle: 'Current version: 2.5.1',
-              onPress: () => navigation.navigate('UpdateApp')
+              title: hasUpdate ? 'Update Available!' : 'Check for Updates',
+              subtitle: hasUpdate ? `New Version ${updateInfo.latestVersion} Available` : `Current version: ${CURRENT_APP_VERSION}`,
+              onPress: () => navigation.navigate('UpdateApp'),
+              danger: hasUpdate
             })}
             <View style={styles.divider} />
             {renderSettingItem({
@@ -180,7 +192,7 @@ export const SettingsScreen = () => {
               danger: true
             })}
           </GlassCard>
-          <Text style={styles.versionText}>LeadVidya CRM v2.5.1</Text>
+          <Text style={styles.versionText}>LeadVidya CRM v{CURRENT_APP_VERSION}</Text>
           <Text style={styles.copyrightText}>© 2026 LeadVidya. All rights reserved.</Text>
         </View>
       </ScrollView>

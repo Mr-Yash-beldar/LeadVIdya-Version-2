@@ -4,6 +4,8 @@ import apiClient from './apiClient';
 const CAMPAIGNS_CACHE_KEY = 'cached_campaigns';
 const CALL_LOGS_CACHE_KEY = 'cached_call_logs';
 
+let versionCache: any = null;
+
 export const api = {
     // Auth
     login: async (data: { email: string; password: string }) => {
@@ -356,6 +358,18 @@ export const api = {
         } catch (error: any) {
             console.error('Salesperson Call Logs Fetch Error:', error.response?.data || error.message);
             throw error;
+        }
+    },
+
+    getAppVersion: async () => {
+        if (versionCache) return versionCache;
+        try {
+            const response = await apiClient.get('/app/version-check');
+            versionCache = response.data; // Expected { latestVersion: string, minVersion: string, updateUrl: string }
+            return versionCache;
+        } catch (error: any) {
+            console.error('App Version Check Error:', error.response?.data || error.message);
+            return null;
         }
     },
 };

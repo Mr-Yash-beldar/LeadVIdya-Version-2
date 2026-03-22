@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Eye, EyeOff, Mail, Lock, LogIn, Sparkles } from 'lucide-react-native';
 import { GlassCard } from '../../components/GlassCard';
 import { CustomButton } from '../../components/CustomButton';
+import { CURRENT_APP_VERSION } from '../../utils/appVersion';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -151,7 +152,7 @@ export const LoginScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           </GlassCard>
 
           <View style={styles.bottomNote}>
-            <Text style={styles.versionText}>v2.5.1 • Team LeadVidya</Text>
+            <Text style={styles.versionText}>v{CURRENT_APP_VERSION} • Team LeadVidya</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

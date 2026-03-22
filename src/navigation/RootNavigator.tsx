@@ -43,6 +43,8 @@ import { UpdateAppScreen } from '../screens/UpdateAppScreen';
 import { NetworkProvider } from '../context/NetworkContext';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { OfflinePopup } from '../components/OfflinePopup';
+import { api } from '../services/api';
+import { CURRENT_APP_VERSION, compareVersions } from '../utils/appVersion';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,6 +126,42 @@ const RootContent = () => {
   
   // Start background notifications polling
   useAutoNotifications();
+
+  useEffect(() => {
+    const checkVersion = async () => {
+        try {
+            const versionData = await api.getAppVersion();
+            console.log("App version check data:", versionData);
+            if (versionData && versionData.latestVersion) {
+                const current = CURRENT_APP_VERSION;
+                const { latestVersion, minVersion = '0.0.0', updateUrl } = versionData;
+
+                // 1. Check for Forced Update
+                if (compareVersions(current, minVersion) < 0) {
+                    console.log("FORCED UPDATE REQUIRED");
+                    navigationRef.current?.navigate('UpdateApp', { isForced: true, updateUrl });
+                    return;
+                }
+
+                // 2. Check for Optional Update
+                if (compareVersions(current, latestVersion) < 0) {
+                    Alert.alert(
+                        "Update Available", 
+                        "A newer version of the app is available. Please update for the best experience.",
+                        [
+                            { text: "Later", style: "cancel" },
+                            { text: "Update Now", onPress: () => navigationRef.current?.navigate('UpdateApp', { isForced: false, updateUrl }) }
+                        ]
+                    );
+                }
+            }
+        } catch (e) {
+            console.error("Version check failed", e);
+        }
+    };
+
+    checkVersion();
+  }, []);
 
   useEffect(() => {
     const checkPendingDispose = async () => {

@@ -6,16 +6,33 @@ import {
     TouchableOpacity,
     Linking,
     Alert,
+    BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 
 const UPDATE_URL = 'https://leadvidya.com/download.php';
 
 export const UpdateAppScreen = () => {
+    const route = useRoute<any>();
     const navigation = useNavigation();
+    const isForced = route.params?.isForced ?? false;
+
+    React.useEffect(() => {
+        if (isForced) {
+            const backAction = () => {
+                Alert.alert("Action Required", "Please update the application to continue using it.", [
+                    { text: "Close App", onPress: () => BackHandler.exitApp() },
+                    { text: "Cancel", style: "cancel" }
+                ]);
+                return true;
+            };
+            const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+            return () => backHandler.remove();
+        }
+    }, [isForced]);
 
     const handleOpenLink = async () => {
         try {
@@ -28,13 +45,20 @@ export const UpdateAppScreen = () => {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-                    <ArrowLeft size={22} color={colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.title}>Update Application</Text>
-                <View style={styles.iconBtn} />
-            </View>
+            {!isForced && (
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+                        <ArrowLeft size={22} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={styles.title}>Update Application</Text>
+                    <View style={styles.iconBtn} />
+                </View>
+            )}
+            {isForced && (
+                <View style={[styles.header, { justifyContent: 'center' }]}>
+                    <Text style={[styles.title, { flex: 1 }]}>Mandatory Update</Text>
+                </View>
+            )}
 
             {/* Content */}
             <View style={styles.content}>
@@ -51,6 +75,15 @@ export const UpdateAppScreen = () => {
                     <ExternalLink size={20} color={colors.black} style={{ marginRight: 8 }} />
                     <Text style={styles.downloadBtnText}>Download Latest APK</Text>
                 </TouchableOpacity>
+
+                {isForced && (
+                    <TouchableOpacity 
+                        style={[styles.downloadBtn, { backgroundColor: '#ECECEC', marginTop: 12 }]} 
+                        onPress={() => BackHandler.exitApp()}
+                    >
+                        <Text style={[styles.downloadBtnText, { color: '#666' }]}>Close Application</Text>
+                    </TouchableOpacity>
+                )}
 
                 <Text style={styles.urlHint}>{UPDATE_URL}</Text>
             </View>
