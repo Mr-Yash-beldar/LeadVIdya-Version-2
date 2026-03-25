@@ -42,7 +42,7 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
 
   // Add Lead Form State
   const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [lastName, setLastName] = useState(' ');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
@@ -312,12 +312,12 @@ export const DialerModal: React.FC<DialerModalProps> = ({ isVisible, onClose, on
             value={firstName}
             onChangeText={setFirstName}
           />
-          <TextInput
+          {/* <TextInput
             style={styles.input}
             placeholder="Last Name"
             value={lastName}
             onChangeText={setLastName}
-          />
+          /> */}
         </View>
 
         <Text style={styles.label}>Select Campaign:</Text>

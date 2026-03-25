@@ -48,7 +48,7 @@ export const UpdateAppScreen = () => {
             {!isForced && (
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-                        <ArrowLeft size={22} color={colors.text} />
+                        <ArrowLeft size={22} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.title}>Update Application</Text>
                     <View style={styles.iconBtn} />
@@ -77,8 +77,8 @@ export const UpdateAppScreen = () => {
                 </TouchableOpacity>
 
                 {isForced && (
-                    <TouchableOpacity 
-                        style={[styles.downloadBtn, { backgroundColor: '#ECECEC', marginTop: 12 }]} 
+                    <TouchableOpacity
+                        style={[styles.downloadBtn, { backgroundColor: '#ECECEC', marginTop: 12 }]}
                         onPress={() => BackHandler.exitApp()}
                     >
                         <Text style={[styles.downloadBtnText, { color: '#666' }]}>Close Application</Text>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 17,
         fontWeight: 'bold',
-        color: colors.text,
+        color: colors.textPrimary,
         textAlign: 'center',
     },
     content: {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     heading: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: colors.text,
+        color: colors.textPrimary,
         marginBottom: 12,
         textAlign: 'center',
     },

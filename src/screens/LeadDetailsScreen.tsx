@@ -114,22 +114,22 @@ export const LeadDetailsScreen = () => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-             try {
-                const id = lead._id || lead.id || params.leadId;
-                if (!id) throw new Error("Missing Lead ID");
-                await LeadsService.deleteLead(id);
-                Alert.alert('Success', 'Lead deleted successfully');
-                navigation.goBack();
-             } catch (e) {
-                Alert.alert('Error', 'Failed to delete lead');
-             }
+            try {
+              const id = lead._id || lead.id || params.leadId;
+              if (!id) throw new Error("Missing Lead ID");
+              await LeadsService.deleteLead(id);
+              Alert.alert('Success', 'Lead deleted successfully');
+              navigation.goBack();
+            } catch (e) {
+              Alert.alert('Error', 'Failed to delete lead');
+            }
           }
         }
       ]
     );
   };
- 
-   const handleUpdateLead = async () => {
+
+  const handleUpdateLead = async () => {
     setIsUpdatingLead(true);
     try {
       const id = lead._id || lead.id || params.leadId;
@@ -138,7 +138,7 @@ export const LeadDetailsScreen = () => {
       Alert.alert('Success', 'Lead details updated successfully');
       setIsEditModalVisible(false);
       fetchLead(false);
-    } catch(e) {
+    } catch (e) {
       Alert.alert('Error', 'Failed to update lead details');
     } finally {
       setIsUpdatingLead(false);
@@ -327,9 +327,9 @@ export const LeadDetailsScreen = () => {
                             <Text style={styles.sectionTitle}>Basic Information</Text>
                           </View>
                           <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={handleDeleteLead}>
+                            {/* <TouchableOpacity onPress={handleDeleteLead}>
                               <Trash2 size={18} color={colors.error} />
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                             <TouchableOpacity onPress={openEditModal}>
                               <Edit3 size={18} color={colors.primary} />
                             </TouchableOpacity>

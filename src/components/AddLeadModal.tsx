@@ -68,7 +68,7 @@ export const AddLeadModal = memo(({
         } else {
           setCampaigns(prev => [...prev, ...newCampaigns]);
         }
-        
+
         // If we got fewer than the limit, there's no more
         setHasMore(newCampaigns.length === 10);
         setPage(pageNumber);
@@ -92,7 +92,7 @@ export const AddLeadModal = memo(({
 
   const resetForm = useCallback(() => {
     setFirstName('');
-    setLastName('');
+    setLastName(' ');
     setSelectedCampaign('');
     setSearchQuery('');
     setPage(1);
@@ -167,14 +167,14 @@ export const AddLeadModal = memo(({
                     placeholderTextColor="#999"
                   />
 
-                  <Text style={styles.label}>Last Name</Text>
+                  {/* <Text style={styles.label}>Last Name</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter last name"
                     value={lastName}
                     onChangeText={setLastName}
                     placeholderTextColor="#999"
-                  />
+                  /> */}
                 </View>
 
                 <Text style={styles.label}>Select Campaign *</Text>
