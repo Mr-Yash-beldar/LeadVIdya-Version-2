@@ -116,6 +116,8 @@ export const updateLeadStatus = async (leadId: string, status: string, notes?: s
 
 export const updateLeadBySalesperson = async (data: any) => {
     try {
+        // console.log(data);
+
         const response = await apiClient.put('/leads/update-by-salesperson', data);
         return response.data;
     } catch (error) {

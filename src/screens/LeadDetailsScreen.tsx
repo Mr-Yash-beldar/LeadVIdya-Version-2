@@ -67,6 +67,8 @@ export const LeadDetailsScreen = () => {
     callInfo?: any;
     fromCall?: boolean;
     allowOtherDispose?: boolean;
+    activeTab?: Tab;
+    refresh?: boolean;
   };
 
   const [lead, setLead] = useState<Lead>(params.lead ?? {} as Lead);
@@ -86,6 +88,12 @@ export const LeadDetailsScreen = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastRecordingPath, setLastRecordingPath] = useState<string | null>(null);
+
+  // ── Demo date/time (Demo Booked / Completed / Rescheduled) ──────────────
+  const [demoDateTime, setDemoDateTime] = useState<Date | null>(null);
+
+  // ── Enrolled amount ──────────────────────────────────────────────────────
+  const [enrolledAmount, setEnrolledAmount] = useState('');
   const [timelineLogs, setTimelineLogs] = useState<any[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [expandedLogIndex, setExpandedLogIndex] = useState<number | null>(null);
@@ -187,6 +195,15 @@ export const LeadDetailsScreen = () => {
   }, [lead?._id, lead?.id, params.leadId, navigation]);
 
   useEffect(() => {
+    if (params?.activeTab) {
+      setActiveTab(params.activeTab as Tab);
+    }
+    if (params?.refresh) {
+      fetchLead(false);
+    }
+  }, [params?.activeTab, params?.refresh]);
+
+  useEffect(() => {
     fetchLead();
   }, []);
 
@@ -244,19 +261,47 @@ export const LeadDetailsScreen = () => {
 
     setIsProcessing(true);
     try {
-      // Basic log object building
-      const matchedCall = {
+      // ── Create matchedCall ONLY if valid call data exists ───────────────────
+      const matchedCall = (params.callInfo || lastRecordingPath) ? {
         duration: params.callInfo?.duration ?? 0,
         timestamp: params.callInfo?.timestamp ?? Date.now(),
         recordingPath: params.callInfo?.recordingUrl ?? lastRecordingPath,
         phoneNumber: params.callInfo?.phoneNumber || lead.phone,
         callType: params.callInfo?.callType,
-      };
+      } : null;
+
+      // ── Demo scheduling log ────────────────────────────────────────────────
+      if (['Demo Booked', 'Demo Completed', 'Demo Rescheduled'].includes(disposeStatus) && demoDateTime) {
+        // console.log('📅 [Demo Info]', {
+        //   status: disposeStatus,
+        //   demoDate: demoDateTime.toLocaleDateString(),
+        //   demoTime: demoDateTime.toLocaleTimeString(),
+        //   demoISO: demoDateTime.toISOString(),
+        // });
+      }
+
+      // ── Enrolled log ───────────────────────────────────────────────────────
+      if (disposeStatus === 'Enrolled') {
+        console.log('💰 [Enrolled Info]', {
+          enrolledAmount: enrolledAmount,
+          enrolledDate: new Date().toLocaleDateString(),
+          enrolledDateISO: new Date().toISOString(),
+        });
+      }
 
       navigation.navigate('CallSummary', {
         leadId: lead._id || lead.id,
         leadName: `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name,
-        formData: { connected, status: disposeStatus, description, expectedValue, followUpDate: followUpDate.toISOString() },
+        formData: {
+          connected,
+          status: disposeStatus,
+          description,
+          expectedValue,
+          followUpDate: followUpDate.toISOString(),
+          // Extra fields
+          demoDateTime: demoDateTime ? demoDateTime.toISOString() : null,
+          enrolledAmount: disposeStatus === 'Enrolled' ? enrolledAmount : null,
+        },
         callLog: matchedCall,
       });
     } finally {
@@ -420,6 +465,10 @@ export const LeadDetailsScreen = () => {
                   onSendWhatsApp={() => Linking.openURL(`whatsapp://send?phone=+91${lead.phone}`)}
                   onDateChange={(e, d) => { setShowDatePicker(Platform.OS === 'ios'); if (d) setFollowUpDate(d); }}
                   onTimeChange={(e, d) => { setShowTimePicker(Platform.OS === 'ios'); if (d) setFollowUpDate(d); }}
+                  demoDateTime={demoDateTime}
+                  setDemoDateTime={setDemoDateTime}
+                  enrolledAmount={enrolledAmount}
+                  setEnrolledAmount={setEnrolledAmount}
                 />
               </ScrollView>
             )}

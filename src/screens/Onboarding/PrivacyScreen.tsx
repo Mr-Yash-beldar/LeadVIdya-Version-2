@@ -11,45 +11,45 @@ export const PrivacyScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-           <Text style={styles.headerTitle}>Your privacy is important to us</Text>
-           <Text style={styles.headerSubtitle}>
-             Please take time to review the key points of our <Text style={{color: colors.secondary}}>Privacy Policy</Text> below.
-           </Text>
+          <Text style={styles.headerTitle}>Your privacy is important to us</Text>
+          <Text style={styles.headerSubtitle}>
+            Please take time to review the key points of our <Text style={{ color: colors.secondary }}>Privacy Policy</Text> below.
+          </Text>
         </View>
 
         <View style={styles.accordionContainer}>
-          <AccordionItem 
-            title="Data we process" 
-            content="We process your call logs and contacts locally on your device to generate insightful reports. We do not transmit your personal conversations." 
+          <AccordionItem
+            title="Data we process"
+            content="We process your call logs and contacts locally on your device to generate insightful reports. We do not transmit your personal conversations."
           />
-          <AccordionItem 
-            title="How we use your data" 
-            content="Your data is used solely for creating analytics charts, history views, and contact statistics within the app." 
+          <AccordionItem
+            title="How we use your data"
+            content="Your data is used solely for creating analytics charts, history views, and contact statistics within the app."
           />
-          <AccordionItem 
-            title="Unnecessary permissions? We never ask for it" 
-            content="We only request permissions that are absolutely necessary for the app's core functionality." 
+          <AccordionItem
+            title="Unnecessary permissions? We never ask for it"
+            content="We only request permissions that are absolutely necessary for the app's core functionality."
           />
-           <AccordionItem 
-            title="Your number is always confidential" 
-            content="We do not share your phone number with any third parties." 
+          <AccordionItem
+            title="Your number is always confidential"
+            content="We do not share your phone number with any third parties."
           />
         </View>
 
         <View style={styles.footerInfo}>
-            <View style={styles.secureBadge}>
-                <ShieldAlert size={20} color={colors.text} style={{marginRight: 8}}/>
-                <Text style={styles.secureText}>
-                    By clicking Agree & Continue you agree to our <Text style={{fontWeight: 'bold'}}>Privacy Policy.</Text>
-                </Text>
-            </View>
+          <View style={styles.secureBadge}>
+            <ShieldAlert size={20} color={colors.textPrimary} style={{ marginRight: 8 }} />
+            <Text style={styles.secureText}>
+              By clicking Agree & Continue you agree to our <Text style={{ fontWeight: 'bold' }}>Privacy Policy.</Text>
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button 
-          title="AGREE & CONTINUE" 
-          onPress={() => navigation.navigate('ConnectSim')} 
+        <Button
+          title="AGREE & CONTINUE"
+          onPress={() => navigation.navigate('ConnectSim')}
         />
       </View>
     </SafeAreaView>
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   headerSubtitle: {
@@ -92,15 +92,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   secureBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   secureText: {
-      fontSize: 13,
-      color: colors.text,
-      flex: 1,
-      lineHeight: 18,
+    fontSize: 13,
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 18,
   },
   footer: {
     padding: 24,

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -33,6 +33,8 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { View, Text, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useAutoSync } from '../hooks/useAutoSync';
 import { useAutoNotifications } from '../hooks/useAutoNotifications';
+import { useNavigationPersistence } from '../hooks/useNavigationPersistence';
+import { clearNavigationState } from '../utils/navigationPersistence';
 import { navigationRef } from '../services/apiClient';
 import { CallScreen } from '../screens/CallScreen';
 import { OnboardingScreen } from '../screens/Onboarding/OnboardingScreen';
@@ -122,8 +124,25 @@ export const RootNavigator = () => {
 };
 
 const RootContent = () => {
-  const { user, loading, isFirstLaunch } = useAuth();
-  
+  const { user, loading, isFirstLaunch, logout: authLogout } = useAuth();
+
+  // ── Navigation state persistence ──────────────────────────────────────────
+  const isAuthenticated = !!user && !loading;
+  const { initialState, onStateChange, isReady } = useNavigationPersistence(isAuthenticated);
+
+  /**
+   * Wrap logout so we always clear persisted nav state before the auth
+   * context clears the user — prevents stale authenticated state from
+   * being restored on the next login.
+   */
+  const logout = useCallback(
+    async (reason?: string) => {
+      await clearNavigationState();
+      await authLogout(reason);
+    },
+    [authLogout],
+  );
+
   // Start background notifications polling
   useAutoNotifications();
 
@@ -183,13 +202,20 @@ const RootContent = () => {
     }
   }, [user, loading]);
 
-  if (loading) {
+  // Show splash while auth context is bootstrapping OR while nav state is
+  // being read from AsyncStorage (isReady). This prevents a flash of the
+  // wrong screen on startup.
+  if (loading || !isReady) {
     return <SplashScreen />;
   }
 
-  // FIXED: Single NavigationContainer at the top level
+  // Single NavigationContainer at the top level with persistence props
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      initialState={initialState}
+      onStateChange={onStateChange}
+    >
       <Stack.Navigator
         id="RootStack"
         screenOptions={{

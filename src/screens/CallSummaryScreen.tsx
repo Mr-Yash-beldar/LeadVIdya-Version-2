@@ -41,6 +41,17 @@ export const CallSummaryScreen = () => {
                 ...(!formData.connected && {
                     note_desc: formData.status,
                 }),
+                // Send Demo and Enrollment data
+                ...(formData.demoDateTime && { 
+                    demoDateTime: formData.demoDateTime,
+                    demoDate: new Date(formData.demoDateTime).toLocaleDateString('en-IN'),
+                    demoTime: new Date(formData.demoDateTime).toLocaleTimeString('en-IN'),
+                }),
+                ...(formData.enrolledAmount && { 
+                    enrolledAmount: formData.enrolledAmount,
+                    enrolledDate: new Date().toLocaleDateString(),
+                    enrolledDateISO: new Date().toISOString(),
+                }),
             };
 
             if (callLog) {
@@ -62,7 +73,7 @@ export const CallSummaryScreen = () => {
                 {
                     text: "Done",
                     onPress: () => {
-                        navigation.navigate('MainTabs', { screen: 'Leads' });
+                        navigation.navigate('LeadDetails', { leadId, activeTab: 'LEAD_INFO', refresh: true });
                     }
                 }
             ]);

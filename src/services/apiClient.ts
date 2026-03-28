@@ -2,8 +2,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNavigationContainerRef } from '@react-navigation/native';
 
-const BASE_URL = 'http://192.168.1.36:5000/api';
-// const BASE_URL = 'https://connect.leadvidya.in/api';
+// const BASE_URL = 'http://10.64.184.244:5000/api';
+
+const BASE_URL = 'https://connect.leadvidya.in/api';
 
 // ── Global 429 backoff ─────────────────────────────────────────────────────
 // When ANY request returns 429, block ALL new requests for BACKOFF_MS.
