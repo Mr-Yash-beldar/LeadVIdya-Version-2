@@ -230,11 +230,17 @@ const mapLogs = (logs: any[]): CallLog[] => {
     }));
 };
 
-const normalizeCallType = (type: string): CallType => {
-    switch (type) {
+const normalizeCallType = (type: string | number): CallType => {
+    const strType = String(type).toUpperCase();
+    switch (strType) {
+        case '1':
         case 'INCOMING': return CallType.Incoming;
+        case '2':
         case 'OUTGOING': return CallType.Outgoing;
+        case '3':
         case 'MISSED': return CallType.Missed;
+        case '5':
+        case 'REJECTED': return CallType.Rejected;
         default: return CallType.Unknown;
     }
 };

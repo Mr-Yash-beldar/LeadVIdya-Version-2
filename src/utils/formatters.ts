@@ -30,6 +30,19 @@ export const formatTime = (timestamp: number): string => {
     return `${hours}:${strMinutes} ${ampm}`;
 };
 
+export const formatTimeInfo = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.getDate() === now.getDate() && 
+                    date.getMonth() === now.getMonth() && 
+                    date.getFullYear() === now.getFullYear();
+    
+    if (isToday) {
+        return `Today, ${formatTime(timestamp)}`;
+    }
+    return formatDateTime(date.toISOString());
+};
+
 export const getCallTypeIconName = (type: string): string => {
     switch (type) {
         case 'INCOMING': return 'arrow-down-left';

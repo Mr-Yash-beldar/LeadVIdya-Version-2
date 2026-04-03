@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { CallLog, CallType } from '../types/CallLog';
-import { formatDuration, formatTime } from '../utils/formatters';
+import { formatDuration, formatTimeInfo } from '../utils/formatters';
 import { colors } from '../theme/colors';
 import { theme } from '../theme/theme';
 import {
@@ -38,6 +38,7 @@ const CALL_TYPE_INFO = {
   [CallType.Incoming]: { color: colors.success, Icon: PhoneIncoming, label: 'Incoming' },
   [CallType.Outgoing]: { color: colors.primary, Icon: PhoneOutgoing, label: 'Outgoing' },
   [CallType.Missed]: { color: colors.error, Icon: PhoneMissed, label: 'Missed' },
+  [CallType.Rejected]: { color: colors.textSecondary, Icon: PhoneMissed, label: 'Rejected' },
   [CallType.Unknown]: { color: colors.textMuted, Icon: Phone, label: 'Unknown' }
 };
 
@@ -262,7 +263,7 @@ export const CallLogItem: React.FC<CallLogItemProps> = memo((
             </View>
             <Text style={styles.phoneNumber}>{displayNumber}</Text>
             <View style={styles.metaRow}>
-              <Text style={styles.metaText}>{formatTime(item.timestamp)}</Text>
+              <Text style={styles.metaText}>{formatTimeInfo(item.timestamp)}</Text>
               <View style={styles.dot} />
               <Text style={styles.metaText}>{formatDuration(item.duration)}</Text>
               <View style={styles.dot} />

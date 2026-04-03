@@ -10,17 +10,31 @@ const LATEST_CALL_TS_KEY = 'latest_call_timestamp';
 const CHECK_PHONE_CACHE_KEY = 'check_phone_cache';
 const CHECK_PHONE_TTL = 30 * 60 * 1000;
 
-/** Maps a native CallType to the backend API payload fields */
 const callPayloadFromLog = (log: CallLog) => {
+    const isZeroDuration = log.duration === 0;
+
     switch (log.type) {
         case CallType.Incoming:
-            return { callStatus: 'completed', callType: 'incoming' };
+            return { 
+                callStatus: isZeroDuration ? 'missed' : 'completed', 
+                callType: 'incoming' 
+            };
         case CallType.Outgoing:
-            return { callStatus: 'completed', callType: 'outgoing' };
+            return { 
+                callStatus: isZeroDuration ? 'not-answered' : 'completed', 
+                callType: 'outgoing' 
+            };
         case CallType.Missed:
-            return { callStatus: 'missed', callType: 'missed' };
+        case CallType.Rejected:
+            return { 
+                callStatus: 'missed', 
+                callType: 'incoming' 
+            };
         default:
-            return { callStatus: 'completed', callType: 'outgoing' };
+            return { 
+                callStatus: isZeroDuration ? 'not-answered' : 'completed', 
+                callType: 'outgoing' 
+            };
     }
 };
 

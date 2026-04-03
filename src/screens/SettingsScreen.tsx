@@ -41,9 +41,9 @@ export const SettingsScreen = () => {
     api.getAppVersion().then(setUpdateInfo);
   }, []);
 
-  const hasUpdate = updateInfo && 
-                   updateInfo.latestVersion && 
-                   compareVersions(CURRENT_APP_VERSION, updateInfo.latestVersion) < 0;
+  const hasUpdate = updateInfo &&
+    updateInfo.latestVersion &&
+    compareVersions(CURRENT_APP_VERSION, updateInfo.latestVersion) < 0;
 
   const handleLogout = useCallback(() => {
     Alert.alert(

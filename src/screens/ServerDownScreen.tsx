@@ -76,7 +76,7 @@ export const ConnectionStatusBanner = () => {
     if (!banner || !showBanner) return null;
 
     return (
-        <Animated.View 
+        <Animated.View
             style={[
                 styles.banner,
                 { backgroundColor: banner.bgColor, transform: [{ translateY: slideAnim }] }
@@ -88,8 +88,8 @@ export const ConnectionStatusBanner = () => {
                     <Text style={styles.bannerText}>{banner.text}</Text>
                 </View>
                 {banner.showPending && pendingSyncCount > 0 && (
-                    <TouchableOpacity 
-                        onPress={() => {}}
+                    <TouchableOpacity
+                        onPress={() => { }}
                         style={styles.bannerButton}
                     >
                         <Text style={styles.bannerButtonText}>
@@ -122,7 +122,7 @@ export const PendingActionsIndicator = () => {
 
     return (
         <Animated.View style={[styles.pendingIndicator, { transform: [{ scale: scaleAnim }] }]}>
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={[styles.pendingBadge, !canSync && styles.pendingBadgeDisabled]}
                 onPress={canSync ? processSyncQueue : undefined}
                 disabled={!canSync}
@@ -162,7 +162,7 @@ export const NetworkQualityIndicator = () => {
             {getIcon()}
             {showTooltip && (
                 <Modal transparent visible={showTooltip} onRequestClose={() => setShowTooltip(false)}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.tooltipOverlay}
                         activeOpacity={1}
                         onPress={() => setShowTooltip(false)}
@@ -170,8 +170,8 @@ export const NetworkQualityIndicator = () => {
                         <View style={styles.tooltip}>
                             <Text style={styles.tooltipTitle}>Connection Quality</Text>
                             <Text style={styles.tooltipText}>
-                                {networkInfo.quality === 'good' 
-                                    ? 'Good connection, but may be slower' 
+                                {networkInfo.quality === 'good'
+                                    ? 'Good connection, but may be slower'
                                     : 'Poor connection detected. Working in offline mode.'}
                             </Text>
                             {networkInfo.latency !== null && (
@@ -283,21 +283,21 @@ export const ServerDownScreen = () => {
                 ) : (
                     <WifiOff size={72} color={colors.error} />
                 )}
-                
+
                 <Text style={styles.title}>
-                    {isOffline 
-                        ? 'No Internet Connection' 
-                        : isPoorConnection 
-                        ? 'Slow Connection Detected' 
-                        : 'Connection Issue'}
+                    {isOffline
+                        ? 'No Internet Connection'
+                        : isPoorConnection
+                            ? 'Slow Connection Detected'
+                            : 'Connection Issue'}
                 </Text>
-                
+
                 <Text style={styles.message}>
-                    {isOffline 
+                    {isOffline
                         ? "You're offline. You can still access previously loaded data."
                         : isPoorConnection
-                        ? "Your connection is slow. We'll work in offline mode."
-                        : "There seems to be a problem with your connection."}
+                            ? "Your connection is slow. We'll work in offline mode."
+                            : "There seems to be a problem with your connection."}
                 </Text>
 
                 {pendingSyncCount > 0 && (
@@ -333,7 +333,7 @@ export const ServerDownScreen = () => {
                 </View>
 
                 <Text style={styles.offlineHint}>
-                    {isPoorConnection 
+                    {isPoorConnection
                         ? "Working offline until connection improves"
                         : "Your changes will sync automatically when connection returns"}
                 </Text>
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: colors.text,
+        color: colors.textPrimary,
         marginTop: 24,
         marginBottom: 12,
         textAlign: 'center',
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     tooltipTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: colors.text,
+        color: colors.textPrimary,
         marginBottom: 8,
     },
     tooltipText: {

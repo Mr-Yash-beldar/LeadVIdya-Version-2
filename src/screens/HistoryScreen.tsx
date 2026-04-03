@@ -597,7 +597,7 @@ const HistoryScreen: React.FC = () => {
   ), [loading, simCount, activeTab, handleAssignSelf, handleAddLead]);
 
   const callLogKeyExtractor = useCallback((item: any, index: number) =>
-    loading ? `skeleton-${index}` : item._id || item.id || index.toString()
+    loading ? `skeleton-${index}` : `${item._id || item.id || 'log'}-${index}`
     , [loading]);
 
   const renderOngoingCall = () => {

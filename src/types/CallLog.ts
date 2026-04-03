@@ -3,6 +3,7 @@ export enum CallType {
     Outgoing = 'OUTGOING',
     Missed = 'MISSED',
     Unknown = 'UNKNOWN',
+    Rejected = 'REJECTED',
 }
 
 export interface CallLog {

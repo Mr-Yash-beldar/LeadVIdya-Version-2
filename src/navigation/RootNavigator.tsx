@@ -148,39 +148,60 @@ const RootContent = () => {
 
   useEffect(() => {
     const checkVersion = async () => {
-        try {
-            const versionData = await api.getAppVersion();
-            console.log("App version check data:", versionData);
-            if (versionData && versionData.latestVersion) {
-                const current = CURRENT_APP_VERSION;
-                const { latestVersion, minVersion = '0.0.0', updateUrl } = versionData;
+      try {
+        const versionData = await api.getAppVersion();
+        // console.log("App version check data:", versionData);
+        if (versionData && versionData.latestVersion) {
+          const current = CURRENT_APP_VERSION;
+          const { latestVersion, minVersion = '0.0.0', updateUrl } = versionData;
 
-                // 1. Check for Forced Update
-                if (compareVersions(current, minVersion) < 0) {
-                    console.log("FORCED UPDATE REQUIRED");
-                    navigationRef.current?.navigate('UpdateApp', { isForced: true, updateUrl });
-                    return;
+          const navigateWithRetry = (name: string, params: any) => {
+            if (navigationRef.isReady()) {
+              (navigationRef as any).navigate(name, params);
+            } else {
+              const interval = setInterval(() => {
+                if (navigationRef.isReady()) {
+                  clearInterval(interval);
+                  (navigationRef as any).navigate(name, params);
                 }
-
-                // 2. Check for Optional Update
-                if (compareVersions(current, latestVersion) < 0) {
-                    Alert.alert(
-                        "Update Available", 
-                        "A newer version of the app is available. Please update for the best experience.",
-                        [
-                            { text: "Later", style: "cancel" },
-                            { text: "Update Now", onPress: () => navigationRef.current?.navigate('UpdateApp', { isForced: false, updateUrl }) }
-                        ]
-                    );
-                }
+              }, 200);
             }
-        } catch (e) {
-            console.error("Version check failed", e);
+          };
+
+          // 1. Check for Forced Update
+          if (compareVersions(current, minVersion) < 0) {
+            console.log("FORCED UPDATE REQUIRED");
+            navigateWithRetry('UpdateApp', { isForced: true, updateUrl });
+            return;
+          }
+
+          // 2. Check for Optional Update
+          if (compareVersions(current, latestVersion) < 0) {
+            Alert.alert(
+              "Update Available",
+              "A newer version of the app is available. Please update for the best experience.",
+              [
+                { text: "Later", style: "cancel" },
+                { text: "Update Now", onPress: () => navigateWithRetry('UpdateApp', { isForced: false, updateUrl }) }
+              ]
+            );
+          }
         }
+      } catch (e) {
+        console.error("Version check failed", e);
+      }
     };
 
-    checkVersion();
-  }, []);
+    if (!loading && isReady) {
+      // Delay to allow UI/Splash to finish transitioning so Alert doesn't drop
+      setTimeout(() => {
+        checkVersion();
+      }, 1500);
+    }
+  }, [loading, isReady]);
+
+  // Start background notifications polling
+  useAutoNotifications();
 
   useEffect(() => {
     const checkPendingDispose = async () => {
